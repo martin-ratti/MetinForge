@@ -1,0 +1,6 @@
+PyQt6
+SQLAlchemy
+pymysql
+python-dotenv
+matplotlib
+qt-material
