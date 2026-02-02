@@ -7,6 +7,13 @@ class CharacterType(enum.Enum):
     ALCHEMIST = "alchemist"
     FISHERMAN = "fisherman"
 
+class Server(Base):
+    __tablename__ = 'servers'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False) # Safiro, Rubi, etc.
+    game_accounts = relationship("GameAccount", back_populates="server")
+
 class StoreAccount(Base):
     __tablename__ = 'store_accounts'
     
@@ -20,8 +27,10 @@ class GameAccount(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True, nullable=False) # Ej: Arequito321
     store_account_id = Column(Integer, ForeignKey('store_accounts.id'))
+    server_id = Column(Integer, ForeignKey('servers.id')) # Nuevo campo
     
     store_account = relationship("StoreAccount", back_populates="game_accounts")
+    server = relationship("Server", back_populates="game_accounts")
     characters = relationship("Character", back_populates="game_account")
 
 class Character(Base):
