@@ -1,5 +1,5 @@
 from sqlalchemy.orm import joinedload, sessionmaker
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, extract
 from src.utils.config import Config
 # IMPORTANTE: Importamos todos los modelos necesarios para las relaciones
 from src.models.models import StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType
@@ -20,19 +20,64 @@ class AlchemyController:
         finally:
             Session.close()
 
-    def create_server(self, name):
+    def create_server(self, name, flags=None):
         session = self.Session()
         from src.models.models import Server
         try:
-            if not name or session.query(Server).filter_by(name=name).first():
-                return False
+            if flags is None:
+                flags = {'dailies': True, 'fishing': True, 'tombola': True}
+
+            # Original check for existing name is removed as per user's provided snippet.
+            # If `name` is empty, the `Server` model might raise an error or it might be handled by the database schema.
+            # Assuming `name` is validated elsewhere or is not expected to be empty.
             
-            new_server = Server(name=name)
+            new_server = Server(
+                name=name,
+                has_dailies=flags.get('dailies', True),
+                has_fishing=flags.get('fishing', True),
+                has_tombola=flags.get('tombola', True)
+            )
             session.add(new_server)
             session.commit()
             return True
         except Exception as e:
             print(f"❌ Error al crear servidor: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def get_server_flags(self, server_id):
+        session = self.Session()
+        from src.models.models import Server
+        try:
+            server = session.query(Server).get(server_id)
+            if server:
+                return {
+                    'has_dailies': server.has_dailies,
+                    'has_fishing': server.has_fishing,
+                    'has_tombola': server.has_tombola
+                }
+            return {}
+        finally:
+            session.close()
+
+    def update_server_feature(self, server_id, feature_key, state):
+        session = self.Session()
+        from src.models.models import Server
+        try:
+            server = session.query(Server).get(server_id)
+            if not server: return False
+            
+            if feature_key == 'dailies': server.has_dailies = state
+            elif feature_key == 'fishing': server.has_fishing = state
+            elif feature_key == 'tombola': server.has_tombola = state
+            
+            session.commit()
+            print(f"Updated Server {server.name} feature {feature_key} to {state}")
+            return True
+        except Exception as e:
+            print(f"Error updating server feature: {e}")
             session.rollback()
             return False
         finally:
@@ -160,89 +205,117 @@ class AlchemyController:
         finally:
             session.close()
 
-    def get_alchemy_dashboard_data(self, server_id=None):
-        """
-        Retorna los datos filtrados por servidor.
-        Si server_id es None, retorna lista vacía (o todo, según lógica, pero para UI multi-server mejor esperar selección).
-        """
-        if not server_id:
-            return []
+    # --- EVENTOS ALQUIMIA ---
+    def create_alchemy_event(self, server_id, name, days):
+        session = self.Session()
+        from src.models.models import AlchemyEvent
+        try:
+            new_event = AlchemyEvent(
+                server_id=server_id,
+                name=name,
+                total_days=days,
+                created_at=datetime.date.today()
+            )
+            session.add(new_event)
+            session.commit()
+            return new_event
+        except Exception as e:
+            print(f"Error creating event: {e}")
+            session.rollback()
+            return None
+        finally:
+            session.close()
 
+    def get_alchemy_events(self, server_id):
+        session = self.Session()
+        from src.models.models import AlchemyEvent
+        try:
+            return session.query(AlchemyEvent).filter_by(server_id=server_id).order_by(AlchemyEvent.id.desc()).all()
+        finally:
+            session.close()
+
+    def get_alchemy_dashboard_data(self, server_id, store_email=None, event_id=None):
+        """
+        Retorna datos filtrados por EVENTO.
+        Si no hay evento seleccionado, retorna vacío.
+        """
+        if not server_id or not event_id:
+            return []
+            
         session = self.Session()
         try:
-            # Consultamos las cuentas de juego que pertenecen a ese servidor
-            # y hacemos join con su tienda y sus personajes+actividad
-            game_accounts = session.query(GameAccount).filter_by(server_id=server_id).options(
-                joinedload(GameAccount.store_account),
-                joinedload(GameAccount.characters).joinedload(Character.daily_cors)
-            ).all()
-
-            # Agrupar por Tienda
-            # Usamos un diccionario para agrupar: {store_id: {'store': store_obj, 'rows': []}}
+            # Consultamos stores que tengan game_accounts en este server
+            query = session.query(StoreAccount).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
+            
+            if store_email:
+                query = query.filter(StoreAccount.email == store_email)
+            
+            stores = query.all()
+            
             grouped_data = {}
-
-            for game_acc in game_accounts:
-                store = game_acc.store_account
+            
+            for store in stores:
+                game_accounts = [acc for acc in store.game_accounts if acc.server_id == server_id]
+                if not game_accounts: continue
+                
                 if store.id not in grouped_data:
                     grouped_data[store.id] = {'store': store, 'accounts': []}
                 
-                # Pre-proceso para la vista:
-                # Cada cuenta tendrá su lista de personajes, pero la vista renderizará UNA fila por cuenta.
-                # La actividad visualizada dependerá de... ¿el primer personaje? ¿o un resumen?
-                # Por ahora pasamos la cuenta entera.
-                
-                grouped_data[store.id]['accounts'].append(game_acc)
+                for game_acc in game_accounts:
+                    # OBTENER ACTIVIDAD del EVENTO seleccionado
+                    if game_acc.characters:
+                        first_char = game_acc.characters[0]
+                        # Filter by event_id
+                        logs = session.query(DailyCorActivity).filter(
+                            DailyCorActivity.character_id == first_char.id,
+                            DailyCorActivity.event_id == event_id
+                        ).all()
+                        
+                        # Map day_index -> status
+                        game_acc.current_event_activity = {log.day_index: log.status_code for log in logs}
+                    else:
+                        game_acc.current_event_activity = {}
+                        
+                    grouped_data[store.id]['accounts'].append(game_acc)
 
-            # Convert to list but keep structure expected by View?
-            # View espera [{'store': ..., 'rows': [...]}] -> Cambiemos 'rows' a 'accounts' o adaptamos View.
-            # Cambiaremos la estructura de retorno a:
-            # list of {'store': store, 'accounts': [game_account_obj, ...]}
-            
             return list(grouped_data.values())
 
         except Exception as e:
             print(f"❌ Error en Controller: {e}")
+            import traceback
+            traceback.print_exc()
             return []
         finally:
             session.close()
 
-    def update_daily_status(self, char_id, day, new_status):
+    def update_daily_status(self, char_id, day_index, new_status, event_id):
         """
-        Actualiza o crea el registro de actividad diaria para un personaje.
-        Asume el mes y año actual por ahora.
+        Actualiza el estado para (char_id, event_id, day_index).
         """
+        if not event_id: return
+
         session = self.Session()
         try:
-            # Construir la fecha correcta del mes actual
-            now = datetime.datetime.now()
-            try:
-                # Intentamos crear la fecha (ej: 30 de febrero daría error)
-                target_date = datetime.date(now.year, now.month, day)
-            except ValueError:
-                print(f"⚠️ Fecha inválida: Día {day} no existe en el mes actual.")
-                return
-
-            # Buscar si ya existe el registro
+            # Buscar si existe
             activity = session.query(DailyCorActivity).filter_by(
                 character_id=char_id,
-                date=target_date
+                event_id=event_id,
+                day_index=day_index
             ).first()
 
             if activity:
-                # Actualizar existente
                 activity.status_code = new_status
-                print(f"🔄 Actualizando: Char {char_id} - {target_date} -> {new_status}")
             else:
-                # Crear nuevo
                 new_activity = DailyCorActivity(
                     character_id=char_id,
-                    date=target_date,
+                    event_id=event_id,
+                    day_index=day_index,
                     status_code=new_status
                 )
                 session.add(new_activity)
-                print(f"➕ Creando: Char {char_id} - {target_date} -> {new_status}")
             
             session.commit()
+            print(f"Updated Char {char_id} Event {event_id} Day {day_index} -> {new_status}")
             
         except Exception as e:
             print(f"❌ Error al guardar estado: {e}")

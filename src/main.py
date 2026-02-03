@@ -24,13 +24,32 @@ class MainWindow(QMainWindow):
 
     def show_server_selection(self):
         self.selection_view = ServerSelectionView()
-        self.selection_view.serverSelected.connect(self.show_alchemy)
-        self.selection_view.backRequested.connect(self.show_main_menu) # Nuevo: Volver al menú
+        self.selection_view.serverSelected.connect(self.show_feature_selection)
+        self.selection_view.backRequested.connect(self.show_main_menu)
         self.setCentralWidget(self.selection_view)
+
+    def show_feature_selection(self, server_id, server_name):
+        # Obtener flags del servidor
+        from src.controllers.alchemy_controller import AlchemyController
+        controller = AlchemyController()
+        flags = controller.get_server_flags(server_id)
         
+        from src.views.feature_selection_view import FeatureSelectionView
+        self.feature_view = FeatureSelectionView(server_name, flags)
+        self.feature_view.featureSelected.connect(lambda feature: self.on_feature_selected(feature, server_id, server_name))
+        self.feature_view.backRequested.connect(self.show_server_selection)
+        self.setCentralWidget(self.feature_view)
+
+    def on_feature_selected(self, feature, server_id, server_name):
+        if feature == "dailies":
+            self.show_alchemy(server_id, server_name)
+        else:
+            print(f"Feature {feature} not implemented yet.")
+
     def show_alchemy(self, server_id, server_name):
         self.alchemy_view = AlchemyView(server_id, server_name)
-        self.alchemy_view.backRequested.connect(self.show_server_selection)
+        # Volver al menu de features, no a seleccion de server
+        self.alchemy_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
         self.setCentralWidget(self.alchemy_view)
 
 def main():
