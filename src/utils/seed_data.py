@@ -13,13 +13,21 @@ def seed():
     print("🌱 Iniciando Seeding (Reset completo)...")
     
     # Reiniciar Base de Datos (Drop & Create)
+    # Reiniciar Base de Datos (Drop & Create)
     try:
-        # Deshabilitar chequeo de llaves foraneas temporalmente para el drop si es necesario, 
-        # pero drop_all suele manejarlo bien si se ordenan, o simplemente falla.
-        # En MySQL drop_all a veces da problemas con FKs si no se hace con cuidado.
-        # Mejor usamos create_all y luego borramos contenido si ya existe,
-        # pero dado que cambiamos el esquema, DROP es mejor.
+        # MySQL fix for foreign keys causing drop_all to fail
+        if 'mysql' in Config.get_db_url():
+            with engine.connect() as con:
+                con.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 0;")
+                con.commit() # Important for some drivers
+        
         Base.metadata.drop_all(engine)
+        
+        if 'mysql' in Config.get_db_url():
+            with engine.connect() as con:
+                con.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 1;")
+                con.commit()
+
         Base.metadata.create_all(engine)
         print("✅ Esquema recreado.")
     except Exception as e:
@@ -45,15 +53,15 @@ def seed():
     session.commit()
 
     # Crear Cuentas de Juego y Personajes
-    nombres_pj = ["Tabacman", "DeSanctis", "Vozzi", "Gutierres", "Araujo", "Font", "Melano", "CabracEdo", "Reynares"]
+    # Nombres PJ ya no se usan aleatorios, usamos PJ 1..5
     
     for store in stores:
-        for j in range(1, 5): # 4 Cuentas por tienda para distribuir mejor
+        for j in range(1, 5): # 4 Cuentas por tienda
             # Asignar servidor aleatorio
             assigned_server = random.choice(servers)
             
             game_acc = GameAccount(
-                username=f"Fragmetin{store.id * 10 + j}_{assigned_server.name[0]}", # Ej: Fragmetin11_S
+                username=f"Fragmetin{store.id}{j}_{assigned_server.name[0]}", # Ej: Fragmetin11_S
                 store_account=store,
                 server=assigned_server
             )
@@ -61,7 +69,7 @@ def seed():
             
             # Crear 5 Personajes por cuenta
             for k in range(5):
-                char_name = f"{random.choice(nombres_pj)}_{random.randint(100, 999)}"
+                char_name = f"PJ {k+1}"
                 char = Character(
                     name=char_name,
                     char_type=CharacterType.ALCHEMIST,

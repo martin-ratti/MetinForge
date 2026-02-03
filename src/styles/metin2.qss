@@ -1,0 +1,90 @@
+/* Metin2 Theme QSS */
+
+/* Fondo General */
+QMainWindow, QWidget {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+/* ScrollArea y Contenedores */
+QScrollArea, QFrame {
+    background-color: #121212;
+    border: none;
+}
+
+/* Etiquetas (Labels) */
+QLabel {
+    color: #dfdfdf;
+    font-size: 14px;
+}
+
+/* Headers / Títulos Importantes (Dorado Metin) */
+QLabel#header, QLabel[class="header"] {
+    color: #d4af37; /* Gold */
+    font-weight: bold;
+    font-size: 20px;
+    border-bottom: 2px solid #5d4d2b;
+    padding-bottom: 5px;
+}
+
+/* Botones Estilo Metin */
+QPushButton {
+    background-color: #2b2b2b;
+    color: #f0c674; /* Gold Text */
+    border: 1px solid #5d4d2b; /* Dark Gold Border */
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+QPushButton:hover {
+    background-color: #3e3e3e;
+    border: 1px solid #d4af37; /* Bright Gold Border */
+    color: #ffffff;
+}
+
+QPushButton:pressed {
+    background-color: #5d4d2b; /* Dark Gold Background */
+    color: #ffffff;
+}
+
+/* Botones de Acción Crítica (Rojo/Borgoña) */
+QPushButton#danger {
+    background-color: #550000;
+    border: 1px solid #800000;
+    color: #ffcccc;
+}
+QPushButton#danger:hover {
+    background-color: #800000;
+    border: 1px solid #ff4444;
+}
+
+/* Listas */
+QListWidget {
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    color: #d4af37;
+}
+QListWidget::item {
+    padding: 10px;
+}
+QListWidget::item:selected {
+    background-color: #3d3d3d;
+    color: #ffffff;
+    border-left: 3px solid #d4af37;
+}
+
+/* Splitter */
+QSplitter::handle {
+    background-color: #333;
+}
+
+/* Inputs / SpinBoxes */
+QSpinBox {
+    background-color: #2b2b2b;
+    color: #d4af37;
+    border: 1px solid #5d4d2b;
+    padding: 4px;
+}
