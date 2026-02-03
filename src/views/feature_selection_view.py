@@ -17,22 +17,24 @@ class FeatureSelectionView(QWidget):
         # Header simple con botón atrás
         # Opcional, pero util para volver a seleccionar servidor
         
-        # Estilo de botones gigantes
+        # Estilo de botones gigantes - Metin2
         btn_style = """
             QPushButton {
-                background-color: #263238;
-                color: #eceff1;
+                background-color: #2b1d0e;
+                color: #d4af37;
                 font-size: 24px;
                 font-weight: bold;
-                border: 1px solid #37474f;
+                border: 2px solid #5d4d2b;
                 border-radius: 0px;
             }
             QPushButton:hover {
-                background-color: #37474f;
-                color: #ffca28;
+                background-color: #3d2b1f;
+                border: 2px solid #d4af37;
+                color: #ffffff;
             }
             QPushButton:pressed {
-                background-color: #455a64;
+                background-color: #d4af37;
+                color: #000000;
             }
         """
         
@@ -74,6 +76,6 @@ class FeatureSelectionView(QWidget):
         # Boton Atras (Pequeño abajo o overlay? Por ahora abajo)
         btn_back = QPushButton("Volver a Selección de Servidor")
         btn_back.setFixedHeight(40)
-        btn_back.setStyleSheet("background-color: #bf360c; color: white; font-weight: bold;")
+        btn_back.setStyleSheet("background-color: #550000; border: 1px solid #800000; color: #ffcccc; font-weight: bold;")
         btn_back.clicked.connect(self.backRequested.emit)
         layout.addWidget(btn_back)

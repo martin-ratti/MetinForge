@@ -43,8 +43,19 @@ class MainWindow(QMainWindow):
     def on_feature_selected(self, feature, server_id, server_name):
         if feature == "dailies":
             self.show_alchemy(server_id, server_name)
+        elif feature == "fishing":
+            self.show_fishing(server_id, server_name)
+        elif feature == "tombola":
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(None, "Tómbola", "Próximamente...")
         else:
             print(f"Feature {feature} not implemented yet.")
+
+    def show_fishing(self, server_id, server_name):
+        from src.views.fishing_view import FishingView
+        self.fishing_view = FishingView(server_id, server_name)
+        self.fishing_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
+        self.setCentralWidget(self.fishing_view)
 
     def show_alchemy(self, server_id, server_name):
         self.alchemy_view = AlchemyView(server_id, server_name)

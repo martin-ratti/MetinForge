@@ -16,7 +16,15 @@ class AlchemyRow(QFrame):
         self.controller = controller
         
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("background-color: #263238; border-radius: 4px; margin-bottom: 2px;")
+        # Metin2 Palette
+        self.setStyleSheet("""
+            QFrame {
+                background-color: #1a1a1a;
+                border: 1px solid #5d4d2b;
+                border-radius: 4px;
+                margin-bottom: 2px;
+            }
+        """)
         
         # Use QHBoxLayout to match Header
         layout = QHBoxLayout()
@@ -46,14 +54,14 @@ class AlchemyRow(QFrame):
         # 1. Nombre Cuenta
         lbl_account = QLabel(game_account.username)
         lbl_account.setFixedWidth(150)
-        lbl_account.setStyleSheet("color: #b0bec5; font-weight: bold; font-size: 12px;")
+        lbl_account.setStyleSheet("border: none; color: #e0e0e0; font-weight: bold; font-size: 12px;")
         
         # 2. Cantidad Slots
         real_slots = len(game_account.characters)
         lbl_slots = QLabel(str(real_slots))
         lbl_slots.setFixedWidth(40)
         lbl_slots.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_slots.setStyleSheet("background-color: #37474f; color: #eceff1; border-radius: 2px; padding: 2px;")
+        lbl_slots.setStyleSheet("background-color: #2b2b2b; border: 1px solid #5d4d2b; color: #d4af37; border-radius: 2px; padding: 2px;")
 
         # 3. Nombre Personaje
         char_name = first_char.name if first_char else "-"
@@ -61,7 +69,7 @@ class AlchemyRow(QFrame):
         
         lbl_char = QLabel(display_name)
         lbl_char.setFixedWidth(150)
-        lbl_char.setStyleSheet("color: #4dd0e1; font-weight: bold; font-size: 13px;")
+        lbl_char.setStyleSheet("border: none; color: #d4af37; font-weight: bold; font-size: 13px;")
         
         layout.addWidget(lbl_account)
         layout.addWidget(lbl_slots)
@@ -93,7 +101,7 @@ class StoreDetailsWidget(QWidget):
         title_layout.setContentsMargins(10, 5, 0, 5) 
         title_widget.setLayout(title_layout)
         title = QLabel(f"📧 {store_data['store'].email}")
-        title.setStyleSheet("font-size: 18px; color: #ffca28; font-weight: bold;")
+        title.setStyleSheet("font-size: 18px; color: #d4af37; font-weight: bold; text-shadow: 1px 1px black;")
         title_layout.addWidget(title)
         layout.addWidget(title_widget)
         
@@ -111,16 +119,16 @@ class StoreDetailsWidget(QWidget):
         
         lbl_h1 = QLabel("CUENTA")
         lbl_h1.setFixedWidth(150)
-        lbl_h1.setStyleSheet("color: #757575; font-size: 10px; font-weight: bold;")
+        lbl_h1.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
         lbl_h2 = QLabel("SLOTS")
         lbl_h2.setFixedWidth(40)
         lbl_h2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_h2.setStyleSheet("color: #757575; font-size: 10px; font-weight: bold;")
+        lbl_h2.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
         lbl_h3 = QLabel("PERSONAJE")
         lbl_h3.setFixedWidth(150)
-        lbl_h3.setStyleSheet("color: #757575; font-size: 10px; font-weight: bold;")
+        lbl_h3.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
         header_layout.addWidget(lbl_h1)
         header_layout.addWidget(lbl_h2)

@@ -27,19 +27,22 @@ class DayButton(QPushButton):
         self.statusChanged.emit(self.day_index, self.status)
 
     def update_style(self):
-        font_style = "font-weight: bold; font-size: 16px;" # Letra mas grande
+        font_style = "font-weight: bold; font-size: 16px;"
         
         if self.status == 1:
             self.setText("✓")
-            self.setStyleSheet(f"background-color: #2ecc71; color: white; border: none; border-radius: 4px; {font_style}") 
+            # Metin2 Success - Gold
+            self.setStyleSheet(f"background-color: #d4af37; color: #000; border: 1px solid #5d4d2b; border-radius: 4px; {font_style}") 
             self.setToolTip(f"Día {self.day_index}: Completado")
         elif self.status == -1:
             self.setText("✕")
-            self.setStyleSheet(f"background-color: #e74c3c; color: white; border: none; border-radius: 4px; {font_style}")
+            # Metin2 Fail - Dark Red
+            self.setStyleSheet(f"background-color: #550000; color: #ffcccc; border: 1px solid #800000; border-radius: 4px; {font_style}")
             self.setToolTip(f"Día {self.day_index}: Fallido / No hecho")
         else:
             self.setText("")
-            self.setStyleSheet(f"background-color: #3f51b5; border: 1px solid #5c6bc0; border-radius: 4px; {font_style}") # Azul Metin
+            # Metin2 Pending - Dark Background with Gold Border
+            self.setStyleSheet(f"background-color: #2b2b2b; border: 1px solid #5d4d2b; border-radius: 4px; {font_style}")
             self.setToolTip(f"Día {self.day_index}: Pendiente")
 
 class DailyGridWidget(QWidget):
@@ -79,7 +82,7 @@ class DailyGridHeaderWidget(QWidget):
             l = QLabel(str(i))
             l.setFixedSize(30, 30) # MATCH DayButton Size
             l.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            l.setStyleSheet("color: #cfd8dc; font-size: 12px; font-weight: bold;") # Texto mas visible
+            l.setStyleSheet("color: #a0a0a0; font-size: 12px; font-weight: bold;")
             
             self.layout.addWidget(l)
 

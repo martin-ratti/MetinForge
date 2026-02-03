@@ -14,20 +14,20 @@ class ServerCard(QFrame):
         self.setFixedSize(280, 180) 
         self.setFrameShape(QFrame.Shape.StyledPanel)
         
-        # Styles
+        # Styles - Metin2 Palette
         self.setStyleSheet("""
             QFrame {
-                background-color: #263238; 
-                border: 2px solid #37474f; 
+                background-color: #1a1a1a; 
+                border: 2px solid #5d4d2b; 
                 border-radius: 12px;
             }
             QFrame:hover {
-                border: 2px solid #d4af37; /* Gold hover border */
-                background-color: #2d3b42;
+                border: 2px solid #d4af37;
+                background-color: #2b1d0e;
             }
             QLabel {
-                color: #eceff1;
-                font-size: 22px; /* Bigger font */
+                color: #d4af37;
+                font-size: 22px;
                 font-weight: bold;
                 border: none;
                 background-color: transparent;
@@ -79,18 +79,19 @@ class ServerCard(QFrame):
             }
         """
         
-        # Estilo Activo (Brillante, Dorado/Verde Metin)
+        # Estilo Activo (Dorado Brillante)
         active_style = """
-            background-color: #2e7d32; /* Green for active/safe */
-            border: 2px solid #66bb6a;
-            color: white;
+            background-color: #d4af37;
+            border: 3px solid #ffcc00;
+            color: #000;
+            font-weight: bold;
         """
         
-        # Estilo Inactivo (Apagado, Gris oscuro)
+        # Estilo Inactivo (Muy Oscuro)
         inactive_style = """
-            background-color: #1c2429;
-            border: 2px solid #37474f;
-            color: #546e7a; /* Dimmed icon */
+            background-color: #0d0d0d;
+            border: 2px solid #2b2b2b;
+            color: #333;
         """
         
         # Aplicar inicial
@@ -208,14 +209,14 @@ class ServerSelectionView(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("Nuevo Servidor")
         dialog.setFixedWidth(300)
-        dialog.setStyleSheet("background-color: #263238; color: white;")
+        dialog.setStyleSheet("background-color: #1a1a1a; color: #d4af37; border: 2px solid #5d4d2b;")
         
         d_layout = QVBoxLayout()
         dialog.setLayout(d_layout)
         
         d_layout.addWidget(QLabel("Nombre del Servidor:"))
         txt_name = QLineEdit()
-        txt_name.setStyleSheet("padding: 5px; background-color: #37474f; border: 1px solid #546e7a; color: white;")
+        txt_name.setStyleSheet("padding: 5px; background-color: #2b2b2b; border: 1px solid #5d4d2b; color: #e0e0e0;")
         d_layout.addWidget(txt_name)
         
         d_layout.addWidget(QLabel("Funcionalidades:"))

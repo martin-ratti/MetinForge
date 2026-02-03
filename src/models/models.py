@@ -51,6 +51,19 @@ class Character(Base):
     
     game_account = relationship("GameAccount", back_populates="characters")
     daily_cors = relationship("DailyCorActivity", back_populates="character")
+    fishing_activities = relationship("FishingActivity", back_populates="character")
+
+class FishingActivity(Base):
+    __tablename__ = 'fishing_activities'
+    
+    id = Column(Integer, primary_key=True)
+    year = Column(Integer, nullable=False)
+    month = Column(Integer, nullable=False)
+    week = Column(Integer, nullable=False) # 1-5
+    status_code = Column(Integer, default=0) # 0=Pending, 1=Done, -1=Failed
+    
+    character_id = Column(Integer, ForeignKey('characters.id'))
+    character = relationship("Character", back_populates="fishing_activities")
 
 class AlchemyEvent(Base):
     __tablename__ = 'alchemy_events'
