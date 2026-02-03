@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, Enum
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, Enum, DateTime
 from sqlalchemy.orm import relationship
 from .base import Base
 import datetime
@@ -115,3 +115,11 @@ class TombolaActivity(Base):
     
     character = relationship("Character", back_populates="tombola_activities")
     event = relationship("TombolaEvent", back_populates="tombola_activities")
+
+class TimerRecord(Base):
+    __tablename__ = 'timer_records'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    elapsed_seconds = Column(Integer, nullable=False)  # Total time in seconds
+    created_at = Column(DateTime, default=datetime.datetime.now)

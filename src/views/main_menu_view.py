@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 class MainMenuView(QWidget):
     # Señales para navegación
     navigate_to_servers = pyqtSignal()
-    navigate_to_emails = pyqtSignal() # Placeholder
+    open_timer = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -51,13 +51,13 @@ class MainMenuView(QWidget):
         btn_servers = self.create_main_button("GESTIONAR SERVIDORES")
         btn_servers.clicked.connect(self.navigate_to_servers.emit)
         
-        btn_emails = self.create_main_button("GESTIONAR CORREOS")
-        btn_emails.clicked.connect(self.navigate_to_emails.emit)
+        btn_timer = self.create_main_button("⏱ CRONÓMETRO")
+        btn_timer.clicked.connect(self.open_timer.emit)
         
         # Botones extra (Config, Salir, etc.) para futuro
         
         container_layout.addWidget(btn_servers)
-        container_layout.addWidget(btn_emails)
+        container_layout.addWidget(btn_timer)
         
         layout.addWidget(container)
 
