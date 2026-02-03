@@ -218,6 +218,7 @@ class AlchemyController:
             )
             session.add(new_event)
             session.commit()
+            session.refresh(new_event) # Load data so it persists after session close
             return new_event
         except Exception as e:
             print(f"Error creating event: {e}")
@@ -320,5 +321,93 @@ class AlchemyController:
         except Exception as e:
             print(f"❌ Error al guardar estado: {e}")
             session.rollback()
+        finally:
+            session.close()
+
+    def bulk_import_accounts(self, server_id, import_data):
+        """
+        Creates accounts and characters from imported data.
+        """
+        email = import_data.get("email")
+        characters = import_data.get("characters", [])
+        
+        if not email or not characters:
+            return False, "Datos incompletos en el archivo."
+            
+        session = self.Session()
+        try:
+            # 1. Ensure StoreAccount exists
+            store = session.query(StoreAccount).filter_by(email=email).first()
+            if not store:
+                store = StoreAccount(email=email)
+                session.add(store)
+                session.flush()
+                
+            for char_data in characters:
+                pj_name = char_data['name']
+                slots = char_data['slots']
+                
+                # Check if character already exists for this store/server
+                # Using a simpler check: username based on pj_name
+                username = f"{pj_name}_acc"
+                
+                existing_acc = session.query(GameAccount).filter_by(username=username).first()
+                if not existing_acc:
+                    new_acc = GameAccount(
+                        username=username,
+                        store_account_id=store.id,
+                        server_id=server_id
+                    )
+                    session.add(new_acc)
+                    session.flush()
+                    
+                    new_char = Character(
+                        name=pj_name,
+                        game_account_id=new_acc.id,
+                        char_type=CharacterType.ALCHEMIST
+                    )
+                    session.add(new_char)
+            
+            session.commit()
+            return True, f"Importación exitosa: {len(characters)} personajes cargados."
+        except Exception as e:
+            session.rollback()
+            return False, str(e)
+    def get_next_pending_day(self, char_id, event_id):
+        """
+        Calculates the first day that is NOT completed (or the next one in sequence).
+        Returns integer day index (1-based).
+        """
+        if not event_id: return 1
+        
+        session = self.Session()
+        try:
+            # Get all activities for this char & event
+            activities = session.query(DailyCorActivity).filter_by(
+                character_id=char_id,
+                event_id=event_id
+            ).order_by(DailyCorActivity.day_index).all()
+            
+            # Create map of known statuses
+            status_map = {a.day_index: a.status_code for a in activities}
+            
+            # Find first day where status is 0 (Pending) or missing
+            # Assuming max 31 days or infinite? Just checking strictly sequential
+            # If day 1 is missing/0 -> return 1.
+            # If day 1 is done, day 2 is missing -> return 2.
+            
+            # Let's check up to 100 days just to be safe or max event days
+            # Ideally we check gaps. 
+            
+            current_day = 1
+            while True:
+                status = status_map.get(current_day, 0)
+                if status == 0:
+                    return current_day
+                current_day += 1
+                
+        except Exception as e:
+            print(f"Error calculating next day: {e}")
+            return 1
         finally:
             session.close()

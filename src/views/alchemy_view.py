@@ -1,14 +1,18 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, 
                              QFrame, QGroupBox, QGridLayout, QSpinBox, QListWidget, QSplitter,
-                             QPushButton, QInputDialog, QMessageBox, QListWidgetItem, QComboBox)
+                             QPushButton, QInputDialog, QMessageBox, QListWidgetItem, QComboBox,
+                             QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
 from src.controllers.alchemy_controller import AlchemyController
 from src.views.widgets.daily_grid import DailyGridWidget
+from src.utils.shortcuts import register_shortcuts
 import datetime
 
 class AlchemyRow(QFrame):
     """ Fila individual: Cuenta | Slots | PJ Principal | Grid """
     editRequested = pyqtSignal(object) # game_account object
+    selectionChanged = pyqtSignal(bool)
+    rowClicked = pyqtSignal(object, Qt.KeyboardModifier) # (self, modifiers)
 
     def __init__(self, game_account, controller, event_id, total_days):
         super().__init__()
@@ -33,6 +37,12 @@ class AlchemyRow(QFrame):
         layout.setContentsMargins(5, 5, 5, 5) 
         layout.setSpacing(10)
         self.setLayout(layout)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+        # 0. Checkbox for selection
+        self.checkbox = QCheckBox()
+        self.checkbox.stateChanged.connect(self._on_checkbox_changed)
+        layout.addWidget(self.checkbox)
 
         # 3. Nombre Personaje (Principal/Visual)
         first_char = game_account.characters[0] if game_account.characters else None
@@ -71,23 +81,65 @@ class AlchemyRow(QFrame):
         lbl_char.setFixedWidth(150)
         lbl_char.setStyleSheet("border: none; color: #d4af37; font-weight: bold; font-size: 13px;")
         
+        # Ensure clicks on labels propagate to the row
+        lbl_account.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        lbl_slots.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        lbl_char.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        
         layout.addWidget(lbl_account)
         layout.addWidget(lbl_slots)
         layout.addWidget(lbl_char)
         layout.addWidget(grid_widget, 1) # Stretch factor 1 to take remaining space
         
+    def _on_checkbox_changed(self, state):
+        selected = (state == Qt.CheckState.Checked.value)
+        self.update_selection_style(selected)
+        self.selectionChanged.emit(selected)
+
+    def is_selected(self):
+        return self.checkbox.isChecked()
+
+    def set_selected(self, selected):
+        self.checkbox.setChecked(selected)
+        # Style will be updated by checkbox signal
+
+    def update_selection_style(self, selected):
+        if selected:
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #2d2d1b;
+                    border: 1px solid #d4af37;
+                    border-radius: 4px;
+                    margin-bottom: 2px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #1a1a1a;
+                    border: 1px solid #5d4d2b;
+                    border-radius: 4px;
+                    margin-bottom: 2px;
+                }
+            """)
+
     def contextMenuEvent(self, event):
         from PyQt6.QtWidgets import QMenu
         menu = QMenu(self)
-        action_edit = menu.addAction("✏️ Editar Cuenta")
-        action = menu.exec(event.globalPos())
-        if action == action_edit:
-            self.editRequested.emit(self.game_account)
+        edit_action = menu.addAction("✏️ Editar Cuenta")
+        edit_action.triggered.connect(lambda: self.editRequested.emit(self.game_account))
+        menu.exec(event.globalPos())
+
+    def mousePressEvent(self, event):
+        self.rowClicked.emit(self, event.modifiers())
+        # Let it propagate so focus works if needed
+        super().mousePressEvent(event)
 
 class StoreDetailsWidget(QWidget):
     def __init__(self, store_data, controller, view_parent, event_id, total_days):
         super().__init__()
         self.controller = controller
+        self.rows = [] # Track account rows
         
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -145,6 +197,8 @@ class StoreDetailsWidget(QWidget):
         for game_account in accounts:
             row_widget = AlchemyRow(game_account, controller, event_id, total_days)
             row_widget.editRequested.connect(view_parent.on_edit_account_requested)
+            row_widget.rowClicked.connect(view_parent.on_row_clicked)
+            self.rows.append(row_widget)
             layout.addWidget(row_widget)
 
 class AlchemyView(QWidget):
@@ -160,8 +214,13 @@ class AlchemyView(QWidget):
         self.selected_email = None
         self.current_event = None
         self.events_cache = []
-
+        self.selected_rows = [] # Track AlchemyRow instances or custom selection
+        self.current_details_widget = None # To hold the current StoreDetailsWidget
+        self.last_clicked_row = None
+        
         self.init_ui()
+        self.setup_shortcuts()
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     def init_ui(self):
         main_layout = QHBoxLayout()
@@ -177,11 +236,22 @@ class AlchemyView(QWidget):
         header_left = QHBoxLayout()
         header_left.setSpacing(10)
         
-        btn_back = QPushButton("←")
-        btn_back.setFixedWidth(40)
+        btn_back = QPushButton("← Volver")
+        btn_back.setFixedWidth(100)
         btn_back.setFixedHeight(30)
         btn_back.clicked.connect(self.backRequested.emit)
-        btn_back.setStyleSheet("QPushButton { background-color: #263238; color: #b0bec5; border: 1px solid #37474f; border-radius: 4px; font-weight: bold; font-size: 16px; } QPushButton:hover { background-color: #37474f; color: white; }")
+        btn_back.setStyleSheet("""
+            QPushButton {
+                background-color: #550000;
+                border: 2px solid #800000;
+                color: #ffcccc;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #800000;
+            }
+        """)
         
         left_title = QLabel(f"{self.server_name}")
         left_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #d4af37;")
@@ -191,14 +261,42 @@ class AlchemyView(QWidget):
         header_left.addWidget(left_title, 1)
         left_layout.addLayout(header_left)
         
-        btn_add_email = QPushButton("Agregar Correo") 
-        btn_add_email.setFixedWidth(140)
+        btn_add_email = QPushButton("📧+ Correo") 
+        btn_add_email.setFixedWidth(110)
         btn_add_email.setFixedHeight(30)
         btn_add_email.clicked.connect(self.prompt_add_email)
         btn_add_email.setStyleSheet("QPushButton { background-color: #1565c0; color: white; border: 1px solid #1e88e5; border-radius: 4px; font-weight: bold; font-size: 13px; } QPushButton:hover { background-color: #1e88e5; }")
         
+        btn_import = QPushButton("📥 Importar")
+        btn_import.setFixedWidth(100)
+        btn_import.setFixedHeight(30)
+        btn_import.clicked.connect(self.on_import_requested)
+        btn_import.setStyleSheet("QPushButton { background-color: #455a64; color: white; border: 1px solid #607d8b; border-radius: 4px; font-weight: bold; font-size: 13px; } QPushButton:hover { background-color: #607d8b; }")
+        
+        btn_help = QPushButton("?")
+        btn_help.setFixedWidth(30)
+        btn_help.setFixedHeight(30)
+        btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_help.clicked.connect(self.show_help)
+        btn_help.setStyleSheet("""
+            QPushButton { 
+                background-color: transparent; 
+                color: #ffca28; 
+                border: 2px solid #ffca28; 
+                border-radius: 15px; 
+                font-weight: bold; 
+                font-size: 16px;
+                padding-bottom: 2px;
+            } 
+            QPushButton:hover { 
+                background-color: rgba(255, 202, 40, 0.1); 
+            }
+        """)
+
         email_toolbar = QHBoxLayout()
         email_toolbar.addWidget(btn_add_email)
+        email_toolbar.addWidget(btn_import)
+        email_toolbar.addWidget(btn_help)
         email_toolbar.addStretch()
         left_layout.addLayout(email_toolbar)
         
@@ -253,18 +351,60 @@ class AlchemyView(QWidget):
         # self.header_frame = QFrame()
         # ...
         
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setStyleSheet("QScrollArea { border: none; background-color: #102027; }")
+        self.scroll_details = QScrollArea()
+        self.scroll_details.setWidgetResizable(True)
+        self.scroll_details.setStyleSheet("QScrollArea { border: none; }")
         
-        self.details_container = QWidget()
-        self.details_container.setStyleSheet("background-color: #102027;")
-        self.details_layout = QVBoxLayout()
-        self.details_layout.setContentsMargins(0, 0, 0, 0)
-        self.details_container.setLayout(self.details_layout)
+        # The details_container and details_layout are no longer needed as setWidget will replace the entire content
+        # self.details_container = QWidget()
+        # self.details_container.setStyleSheet("background-color: #102027;")
+        # self.details_layout = QVBoxLayout()
+        # self.details_layout.setContentsMargins(0, 0, 0, 0)
+        # self.details_container.setLayout(self.details_layout)
         
-        self.scroll.setWidget(self.details_container)
-        right_layout.addWidget(self.scroll)
+        # self.scroll.setWidget(self.details_container)
+        right_layout.addWidget(self.scroll_details)
+        
+        # --- BATCH ACTIONS TOOLBAR (Floating at bottom) ---
+        self.batch_toolbar = QFrame()
+        self.batch_toolbar.setFixedHeight(50)
+        self.batch_toolbar.setStyleSheet("""
+            QFrame {
+                background-color: #2b2b2b;
+                border-top: 2px solid #5d4d2b;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+            }
+        """)
+        self.batch_toolbar.setVisible(False)
+        
+        batch_layout = QHBoxLayout(self.batch_toolbar)
+        batch_layout.setContentsMargins(20, 0, 20, 0)
+        
+        self.lbl_batch_count = QLabel("0 seleccionadas")
+        self.lbl_batch_count.setStyleSheet("color: #d4af37; font-weight: bold;")
+        batch_layout.addWidget(self.lbl_batch_count)
+        
+        batch_layout.addStretch()
+        
+        btn_done = QPushButton("✅ Hecho (1)")
+        btn_done.clicked.connect(lambda: self.apply_batch_status(1))
+        btn_done.setStyleSheet("background-color: #1b5e20; color: white; border: 1px solid #4caf50; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_done)
+        
+        btn_fail = QPushButton("❌ Fallido (2)")
+        btn_fail.clicked.connect(lambda: self.apply_batch_status(-1))
+        btn_fail.setStyleSheet("background-color: #b71c1c; color: white; border: 1px solid #f44336; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_fail)
+        
+        btn_reset = QPushButton("♻️ Reset (3)")
+        btn_reset.clicked.connect(lambda: self.apply_batch_status(0))
+        btn_reset.setStyleSheet("background-color: #455a64; color: white; border: 1px solid #90a4ae; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_reset)
+        
+        right_layout.addWidget(self.batch_toolbar)
+        
+        right_layout.addStretch() # Add stretch to push content to top
 
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
@@ -272,6 +412,116 @@ class AlchemyView(QWidget):
         main_layout.addWidget(splitter)
         
         self.load_events()
+
+    def setup_shortcuts(self):
+        register_shortcuts(self, {
+            'Ctrl+A': self.select_all_rows,
+            'Ctrl+D': self.deselect_all_rows,
+            '1': lambda: self.apply_batch_status(1),
+            '2': lambda: self.apply_batch_status(-1),
+            '3': lambda: self.apply_batch_status(0),
+        })
+
+    def select_all_rows(self):
+        """Select all account rows in the current detail view."""
+        if hasattr(self, 'current_details_widget') and self.current_details_widget:
+            for row in self.current_details_widget.rows:
+                row.set_selected(True)
+
+    def deselect_all_rows(self):
+        """Deselect all account rows."""
+        if hasattr(self, 'current_details_widget') and self.current_details_widget:
+            for row in self.current_details_widget.rows:
+                row.set_selected(False)
+
+    def apply_batch_status(self, status):
+        """Apply a status to all selected rows based on their next sequential day."""
+        if not hasattr(self, 'current_details_widget') or not self.current_details_widget:
+            return
+            
+        selected_rows = [row for row in self.current_details_widget.rows if row.is_selected()]
+        if not selected_rows:
+            return
+            
+        if not self.current_event:
+            return
+            
+        count = 0
+        for row in selected_rows:
+            char = row.game_account.characters[0] if row.game_account.characters else None
+            if char:
+                # Find the next pending day for THIS character
+                # If status is 0 (Reset), we might want to reset the LAST done day?
+                # But for now let's assume batch actions move forward or reset current pending?
+                # User Requirement: "modify the day following the last one marked"
+                
+                # Logic:
+                # If marking Done/Fail (1/-1): Update the next pending day.
+                # If marking Reset (0): Update the LAST completed day -> 0?
+                # The user said "resetear", usually means setting back to 0. 
+                # If we reset, we should probably find the highest day that is != 0 and set it to 0.
+                
+                day_to_update = 1
+                if status == 0:
+                    # Logic for RESET: Find last non-zero day
+                    # This is complex without querying full history here.
+                    # For simplicity/safety in batch, let's just target the calculated pending day - 1?
+                    # Or maybe just don't support smart reset in batch yet, or implement 'get_last_completed_day'
+                    
+                    # Alternative: Just use get_next_pending_day, and if it returns > 1, target day - 1
+                    next_day = self.controller.get_next_pending_day(char.id, self.current_event.id)
+                    day_to_update = max(1, next_day - 1)
+                    
+                    # Verify if day_to_update actually has a status to reset?
+                    # Sent 0 to day_to_update
+                else:
+                    # Logic for Forward Progress
+                    day_to_update = self.controller.get_next_pending_day(char.id, self.current_event.id)
+
+                self.controller.update_daily_status(
+                    char.id, day_to_update, status, event_id=self.current_event.id
+                )
+                count += 1
+        
+        # Refresh view
+        self.load_data(preserve_selection=self.selected_email) 
+        QMessageBox.information(self, "Acción Batch", f"Se actualizaron {count} cuentas.")
+
+    def on_row_clicked(self, row, modifiers):
+        if not self.current_details_widget:
+            return
+            
+        rows = self.current_details_widget.rows
+        idx = rows.index(row)
+        
+        if modifiers & Qt.KeyboardModifier.ShiftModifier and self.last_clicked_row in rows:
+            # Range selection
+            start_idx = rows.index(self.last_clicked_row)
+            end_idx = idx
+            
+            # Select everything in between
+            step = 1 if start_idx < end_idx else -1
+            for i in range(start_idx, end_idx + step, step):
+                rows[i].set_selected(True)
+        elif modifiers & Qt.KeyboardModifier.ControlModifier:
+            # Toggle individual
+            row.set_selected(not row.is_selected())
+        else:
+            # Single click selection (optional, user said "Atajos Obligatorio" maybe they want this too)
+            # Keeping it as toggle for now to be safe, or just update last_clicked
+            pass
+            
+        self.last_clicked_row = row
+        self.update_batch_toolbar()
+
+    def update_batch_toolbar(self):
+        if not self.current_details_widget:
+            self.batch_toolbar.setVisible(False)
+            return
+            
+        selected_count = sum(1 for row in self.current_details_widget.rows if row.is_selected())
+        self.lbl_batch_count.setText(f"{selected_count} seleccionadas")
+        self.batch_toolbar.setVisible(selected_count > 0)
 
     def load_events(self):
         self.events_cache = self.controller.get_alchemy_events(self.server_id)
@@ -305,10 +555,13 @@ class AlchemyView(QWidget):
             new_ev = self.controller.create_alchemy_event(self.server_id, name, days)
             if new_ev:
                 self.load_events()
-                # Select the new event
-                index = self.combo_events.findData(new_ev)
-                if index >= 0:
-                    self.combo_events.setCurrentIndex(index)
+                # Select the new event SAFELY by ID
+                target_id = new_ev.id
+                for i in range(self.combo_events.count()):
+                    ev_item = self.combo_events.itemData(i)
+                    if ev_item and ev_item.id == target_id:
+                        self.combo_events.setCurrentIndex(i)
+                        break
             else:
                 QMessageBox.warning(self, "Error", "No se pudo crear el evento.")
 
@@ -335,37 +588,48 @@ class AlchemyView(QWidget):
         self.selected_email = None
         
         for entry in self.data:
-             self.store_list.addItem(entry['store'].email)
+             item = QListWidgetItem(entry['store'].email)
+             item.setData(Qt.ItemDataRole.UserRole, entry) # Store the full entry object
+             self.store_list.addItem(item)
         
         if preserve_selection:
-            exists = any(d['store'].email == preserve_selection for d in self.data)
-            if exists:
-                items = self.store_list.findItems(preserve_selection, Qt.MatchFlag.MatchExactly)
-                if items:
-                    self.store_list.setCurrentItem(items[0])
-                    self.on_store_selected(items[0])
+            # Find item by email (which is the text)
+            items = self.store_list.findItems(preserve_selection, Qt.MatchFlag.MatchExactly)
+            if items:
+                self.store_list.setCurrentItem(items[0])
+                self.on_store_selected(items[0])
+        elif self.store_list.count() > 0:
+            # Auto-select first if nothing preserved
+            self.store_list.setCurrentRow(0)
+            self.on_store_selected(self.store_list.item(0))
 
     def on_store_selected(self, item):
-        email = item.text()
-        self.selected_email = email
+        store_data = item.data(Qt.ItemDataRole.UserRole)
+        self.selected_email = store_data['store'].email
         self.btn_add_account.setVisible(True)
         
-        selected_store_data = next((d for d in self.data if d['store'].email == email), None)
+        self.clear_details()
         
-        if selected_store_data:
-            self.clear_details()
-            total = self.current_event.total_days if self.current_event else 31
-            eid = self.current_event.id if self.current_event else None
-            details = StoreDetailsWidget(selected_store_data, self.controller, self, eid, total)
-            self.details_layout.addWidget(details)
-            self.details_layout.addStretch()
+        # Details Widget
+        eid = self.current_event.id if self.current_event else None
+        total_days = self.current_event.total_days if self.current_event else 30
+        
+        self.current_details_widget = StoreDetailsWidget(
+            store_data, self.controller, self, eid, total_days
+        )
+        # Connect selection signals for toolbar update
+        for row in self.current_details_widget.rows:
+            row.selectionChanged.connect(self.update_batch_toolbar)
+            
+        self.scroll_details.setWidget(self.current_details_widget)
+        self.update_batch_toolbar()
 
     def clear_details(self):
-        while self.details_layout.count():
-            item = self.details_layout.takeAt(0)
-            widget = item.widget()
+        if hasattr(self, 'scroll_details') and self.scroll_details.widget():
+            widget = self.scroll_details.widget()
             if widget:
                 widget.deleteLater()
+            self.scroll_details.takeWidget()
 
     def prompt_add_email(self):
         email, ok = QInputDialog.getText(self, "Nuevo Correo", "Dirección de Email:")
@@ -408,3 +672,31 @@ class AlchemyView(QWidget):
                  self.load_data(preserve_selection=new_email)
             else:
                  QMessageBox.warning(self, "Error", "No se pudo actualizar.")
+
+    def on_import_requested(self):
+        from PyQt6.QtWidgets import QFileDialog
+        from src.utils.excel_importer import parse_account_file
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Importar Cuentas", "", "Excel/CSV Files (*.xlsx *.csv)"
+        )
+        
+        if not file_path:
+            return
+            
+        try:
+            import_data = parse_account_file(file_path)
+            success, message = self.controller.bulk_import_accounts(self.server_id, import_data)
+            
+            if success:
+                QMessageBox.information(self, "Éxito", message)
+                self.load_data(preserve_selection=import_data.get("email"))
+            else:
+                QMessageBox.warning(self, "Error de Importación", message)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error crítico al importar: {str(e)}")
+
+    def show_help(self):
+        from src.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
+        dialog = HelpShortcutsDialog(self)
+        dialog.exec()

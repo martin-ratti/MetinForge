@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, 
-                             QFrame, QPushButton, QComboBox, QSplitter, QListWidget, QListWidgetItem)
+                             QFrame, QPushButton, QComboBox, QSplitter, QListWidget, QListWidgetItem, QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
 from src.controllers.fishing_controller import FishingController
 import datetime
@@ -19,6 +19,9 @@ class WeekButton(QPushButton):
         self.clicked.connect(self.toggle_status)
 
     def toggle_status(self):
+        # Sequential logic is enforced by enabled/disabled state
+        if not self.isEnabled(): return
+
         # 0 -> 1 -> -1 -> 0
         if self.status == 0: self.status = 1
         elif self.status == 1: self.status = -1
@@ -38,6 +41,12 @@ class WeekButton(QPushButton):
             self.setText("")
             self.setStyleSheet(f"background-color: #37474f; {base_style}")
 
+    def setOpacity(self, opacity):
+        from PyQt6.QtWidgets import QGraphicsOpacityEffect
+        op = QGraphicsOpacityEffect(self)
+        op.setOpacity(opacity)
+        self.setGraphicsEffect(op)
+
 class FishingGridWidget(QWidget):
     cellStatusChanged = pyqtSignal(int, int, int) # m, w, status
 
@@ -48,6 +57,8 @@ class FishingGridWidget(QWidget):
         self.layout.setSpacing(2)
         self.setLayout(self.layout)
         
+        self.buttons = [] # Track buttons in order
+
         for m in range(1, 13):
             month_frame = QFrame()
             month_frame.setStyleSheet("border-left: 1px solid #5d4d2b;") 
@@ -60,15 +71,43 @@ class FishingGridWidget(QWidget):
                 key = f"{m}_{w}"
                 st = activity_map.get(key, 0)
                 btn = WeekButton(m, w, st)
-                btn.statusChanged.connect(self.cellStatusChanged.emit)
+                btn.statusChanged.connect(self.handle_button_change)
                 mf_layout.addWidget(btn)
+                self.buttons.append(btn)
             
             self.layout.addWidget(month_frame)
+        
+        self.refresh_enable_states()
+
+    def handle_button_change(self, m, w, status):
+        self.cellStatusChanged.emit(m, w, status)
+        self.refresh_enable_states()
+
+    def refresh_enable_states(self):
+        previous_done = True
+        
+        for btn in self.buttons:
+            if previous_done:
+                btn.setEnabled(True)
+                btn.setOpacity(1.0)
+            else:
+                btn.setEnabled(False)
+                # btn.setOpacity(0.5) optional visual cue
+            
+            if btn.status == 0:
+                previous_done = False
+            else:
+                previous_done = True
 
 class FishingRow(QFrame):
+    selectionChanged = pyqtSignal(bool)
+    rowClicked = pyqtSignal(object, Qt.KeyboardModifier)
+
     def __init__(self, game_account, controller, year):
         super().__init__()
+        self.game_account = game_account
         self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         # Metin2 Palette: Dark Bg #1a1a1a, Gold Border #5d4d2b
         self.setStyleSheet("""
             QFrame {
@@ -83,36 +122,75 @@ class FishingRow(QFrame):
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(10)
         self.setLayout(layout)
+
+        # 0. Checkbox
+        self.checkbox = QCheckBox()
+        self.checkbox.stateChanged.connect(self._on_checkbox_changed)
+        layout.addWidget(self.checkbox)
         
         # 1st Char as representative
         first_char = game_account.characters[0] if game_account.characters else None
         char_name = first_char.name if first_char else "???"
         display_name = char_name.split('_')[0] if '_' in char_name else char_name
-
-        # Account Name
+        
+        # Labels
         lbl_acc = QLabel(game_account.username)
         lbl_acc.setFixedWidth(120)
-        # Metin Text (Grey/White)
         lbl_acc.setStyleSheet("border: none; color: #e0e0e0; font-weight: bold;")
-        layout.addWidget(lbl_acc)
+        lbl_acc.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        # Char Name (Pescador)
         lbl_name = QLabel(display_name)
         lbl_name.setFixedWidth(120)
-        # Metin Gold Text
         lbl_name.setStyleSheet("border: none; color: #d4af37; font-weight: bold;")
+        lbl_name.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+        layout.addWidget(lbl_acc)
         layout.addWidget(lbl_name)
         
         # Grid
         activity_map = getattr(game_account, 'fishing_activity_map', {})
         self.grid = FishingGridWidget(activity_map, year)
         
-        # Connect
         if first_char:
             self.grid.cellStatusChanged.connect(lambda m, w, s: controller.update_fishing_status(first_char.id, year, m, w, s))
         
         layout.addWidget(self.grid)
         layout.addStretch()
+
+    def _on_checkbox_changed(self, state):
+        selected = (state == Qt.CheckState.Checked.value)
+        self.update_selection_style(selected)
+        self.selectionChanged.emit(selected)
+
+    def is_selected(self):
+        return self.checkbox.isChecked()
+
+    def set_selected(self, selected):
+        self.checkbox.setChecked(selected)
+
+    def update_selection_style(self, selected):
+        if selected:
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #2d2d1b;
+                    border: 1px solid #d4af37;
+                    border-radius: 4px;
+                    margin-bottom: 2px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #1a1a1a; 
+                    border: 1px solid #5d4d2b; 
+                    border-radius: 4px; 
+                    margin-bottom: 2px;
+                }
+            """)
+
+    def mousePressEvent(self, event):
+        self.rowClicked.emit(self, event.modifiers())
+        super().mousePressEvent(event)
 
 class FishingHeaderWidget(QWidget):
     def __init__(self):
@@ -194,9 +272,11 @@ class FishingStoreDetailsWidget(QWidget):
         layout.addWidget(header_container)
 
         # Cuentas 
+        self.rows = [] # Track rows
         accounts = store_data.get('accounts', [])
         for game_account in accounts:
              row = FishingRow(game_account, controller, year)
+             self.rows.append(row)
              layout.addWidget(row)
 
 
@@ -230,10 +310,22 @@ class FishingView(QWidget):
         
         # Header Left
         header_left = QHBoxLayout()
-        btn_back = QPushButton("←")
-        btn_back.setFixedWidth(40)
+        btn_back = QPushButton("← Volver")
+        btn_back.setFixedWidth(100)
+        btn_back.setFixedHeight(30)
         btn_back.clicked.connect(self.backRequested.emit)
-        btn_back.setStyleSheet("QPushButton { background-color: #263238; color: #b0bec5; font-weight: bold; }")
+        btn_back.setStyleSheet("""
+            QPushButton {
+                background-color: #550000;
+                border: 2px solid #800000;
+                color: #ffcccc;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #800000;
+            }
+        """)
         
         left_title = QLabel("Pesca Anual")
         left_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #d4af37;")
@@ -271,19 +363,41 @@ class FishingView(QWidget):
         self.combo_year.setStyleSheet("padding: 5px; background-color: #37474f; color: white;")
         self.combo_year.currentIndexChanged.connect(self.on_year_changed)
         
+        btn_help = QPushButton("?")
+        btn_help.setFixedWidth(30)
+        btn_help.setFixedHeight(30)
+        btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_help.clicked.connect(self.show_help)
+        btn_help.setStyleSheet("""
+            QPushButton { 
+                background-color: transparent; 
+                color: #ffca28; 
+                border: 2px solid #ffca28; 
+                border-radius: 15px; 
+                font-weight: bold; 
+                font-size: 16px;
+                padding-bottom: 2px;
+            } 
+            QPushButton:hover { 
+                background-color: rgba(255, 202, 40, 0.1); 
+            }
+        """)
+
         top_bar.addWidget(lbl_server)
         top_bar.addStretch()
         top_bar.addWidget(QLabel("Año:"))
         top_bar.addWidget(self.combo_year)
+        top_bar.addWidget(btn_help)
         right_layout.addLayout(top_bar)
         
         # Scroll Area
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True) # Vertical resize
-        self.scroll.setStyleSheet("QScrollArea { border: none; background-color: #102027; }")
+        self.scroll.setWidgetResizable(True) # Vertical resize
+        self.scroll.setStyleSheet("QScrollArea { border: none; }")
         
         self.content_container = QWidget()
-        self.content_container.setStyleSheet("background-color: #102027;")
+        # self.content_container.setStyleSheet("background-color: #102027;") # Removed to match Tombola
         self.content_layout = QVBoxLayout()
         self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.content_container.setLayout(self.content_layout)
@@ -291,10 +405,52 @@ class FishingView(QWidget):
         self.scroll.setWidget(self.content_container)
         right_layout.addWidget(self.scroll)
         
+        # --- BATCH ACTIONS TOOLBAR (Floating at bottom) ---
+        self.batch_toolbar = QFrame()
+        self.batch_toolbar.setFixedHeight(50)
+        self.batch_toolbar.setStyleSheet("""
+            QFrame {
+                background-color: #2b2b2b;
+                border-top: 2px solid #5d4d2b;
+            }
+        """)
+        self.batch_toolbar.setVisible(False)
+        
+        batch_layout = QHBoxLayout(self.batch_toolbar)
+        batch_layout.setContentsMargins(20, 0, 20, 0)
+        
+        self.lbl_batch_count = QLabel("0 seleccionadas")
+        self.lbl_batch_count.setStyleSheet("color: #d4af37; font-weight: bold;")
+        batch_layout.addWidget(self.lbl_batch_count)
+        
+        batch_layout.addStretch()
+        
+        btn_done = QPushButton("✅ Hecho (1)")
+        btn_done.clicked.connect(lambda: self.apply_batch_status(1))
+        btn_done.setStyleSheet("background-color: #1b5e20; color: white; border: 1px solid #4caf50; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_done)
+        
+        btn_fail = QPushButton("❌ Fallido (2)")
+        btn_fail.clicked.connect(lambda: self.apply_batch_status(-1))
+        btn_fail.setStyleSheet("background-color: #b71c1c; color: white; border: 1px solid #f44336; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_fail)
+        
+        btn_reset = QPushButton("♻️ Reset (3)")
+        btn_reset.clicked.connect(lambda: self.apply_batch_status(0))
+        btn_reset.setStyleSheet("background-color: #455a64; color: white; border: 1px solid #90a4ae; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_reset)
+        
+        right_layout.addWidget(self.batch_toolbar)
+        
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
         splitter.setSizes([300, 900])
         main_layout.addWidget(splitter)
+        
+        # Init Shortcuts
+        self.setup_shortcuts()
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
 
     def load_data(self):
         self.data_cache = self.controller.get_fishing_data(self.server_id, self.current_year)
@@ -314,10 +470,10 @@ class FishingView(QWidget):
         
         if selected_item:
             self.store_list.setCurrentItem(selected_item)
-            self.show_store_details(selected_item.data(Qt.ItemDataRole.UserRole))
+            self.on_store_selected(selected_item)
         elif self.store_list.count() > 0:
             self.store_list.setCurrentRow(0)
-            self.show_store_details(self.store_list.item(0).data(Qt.ItemDataRole.UserRole))
+            self.on_store_selected(self.store_list.item(0))
         else:
             self.clear_details()
 
@@ -327,17 +483,114 @@ class FishingView(QWidget):
         self.show_store_details(store_data)
 
     def show_store_details(self, store_data):
-        # Clear right panel
         self.clear_details()
+        self.current_details_widget = FishingStoreDetailsWidget(store_data, self.controller, self.current_year)
+        self.content_layout.addWidget(self.current_details_widget)
         
-        details_widget = FishingStoreDetailsWidget(store_data, self.controller, self.current_year)
-        self.content_layout.addWidget(details_widget)
-        
+        # Connect rows
+        for row in self.current_details_widget.rows:
+            row.selectionChanged.connect(self.update_batch_toolbar)
+            row.rowClicked.connect(self.on_row_clicked)
+            
+        self.update_batch_toolbar()
+
     def clear_details(self):
         while self.content_layout.count():
              item = self.content_layout.takeAt(0)
              if item.widget(): item.widget().deleteLater()
+        self.current_details_widget = None
 
     def on_year_changed(self):
         self.current_year = int(self.combo_year.currentText())
         self.load_data()
+
+    def setup_shortcuts(self):
+        from src.utils.shortcuts import register_shortcuts
+        register_shortcuts(self, {
+            'Ctrl+A': self.select_all_rows,
+            'Ctrl+D': self.deselect_all_rows,
+            '1': lambda: self.apply_batch_status(1),
+            '2': lambda: self.apply_batch_status(-1),
+            '3': lambda: self.apply_batch_status(0),
+        })
+
+    def select_all_rows(self):
+        if hasattr(self, 'current_details_widget') and self.current_details_widget:
+            for row in self.current_details_widget.rows:
+                row.set_selected(True)
+
+    def deselect_all_rows(self):
+        if hasattr(self, 'current_details_widget') and self.current_details_widget:
+            for row in self.current_details_widget.rows:
+                row.set_selected(False)
+
+    def on_row_clicked(self, row, modifiers):
+        if not self.current_details_widget: return
+        rows = self.current_details_widget.rows
+        if row not in rows: return
+        
+        idx = rows.index(row)
+        
+        if modifiers & Qt.KeyboardModifier.ShiftModifier and hasattr(self, 'last_clicked_row') and self.last_clicked_row in rows:
+            start = rows.index(self.last_clicked_row)
+            end = idx
+            step = 1 if start < end else -1
+            for i in range(start, end + step, step):
+                rows[i].set_selected(True)
+        elif modifiers & Qt.KeyboardModifier.ControlModifier:
+            row.set_selected(not row.is_selected())
+        else:
+            # Optional: Single click logic? Keeping it simple
+            pass
+            
+        self.last_clicked_row = row
+
+    def update_batch_toolbar(self):
+        if not hasattr(self, 'current_details_widget') or not self.current_details_widget:
+            self.batch_toolbar.setVisible(False)
+            return
+            
+        selected = [r for r in self.current_details_widget.rows if r.is_selected()]
+        count = len(selected)
+        self.lbl_batch_count.setText(f"{count} seleccionadas")
+        self.batch_toolbar.setVisible(count > 0)
+
+    def show_help(self):
+        from src.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
+        dialog = HelpShortcutsDialog(self)
+        dialog.exec()
+
+    def apply_batch_status(self, status):
+        from PyQt6.QtWidgets import QMessageBox
+        if not hasattr(self, 'current_details_widget') or not self.current_details_widget:
+            return
+
+        selected_rows = [r for r in self.current_details_widget.rows if r.is_selected()]
+        if not selected_rows: return
+        
+        count = 0
+        for row in selected_rows:
+            char = row.game_account.characters[0] if row.game_account.characters else None
+            if char:
+                # Sequential Logic: Find next pending WEEK
+                # Fishing is (Month, Week)
+                # We need a controller method: get_next_pending_week(char_id, year)
+                # returning (month, week) tuple
+                
+                next_m, next_w = self.controller.get_next_pending_week(char.id, self.current_year)
+                
+                # Careful with Reset (0). Logic: If 0, target LAST completed?
+                # For simplicity, stick to next_pending for now or enforce progression
+                # Just applying to the calculated slot
+                
+                target_m, target_w = next_m, next_w
+                if status == 0 and (target_m > 1 or target_w > 1):
+                     # If resetting, maybe we want to undo the PREVIOUS one?
+                     # Let's simple apply to pending for now to avoid complexity or just current
+                     pass
+
+                self.controller.update_fishing_status(char.id, self.current_year, target_m, target_w, status)
+                count += 1
+        
+        self.load_data()
+        QMessageBox.information(self, "Acción Batch - Pesca", f"Se actualizaron {count} cuentas.")

@@ -144,3 +144,31 @@ class TombolaController:
             print(f"Error updating tombola status: {e}")
         finally:
             session.close()
+
+    def get_next_pending_day(self, char_id, event_id):
+        """
+        Calculates the first day that is NOT completed.
+        Returns integer day index.
+        """
+        if not event_id: return 1
+        
+        session = self.Session()
+        try:
+            activities = session.query(TombolaActivity).filter_by(
+                character_id=char_id,
+                event_id=event_id
+            ).order_by(TombolaActivity.day_index).all()
+            
+            status_map = {a.day_index: a.status_code for a in activities}
+            
+            current_day = 1
+            while True:
+                # If day status is 0 (Pending) or not found -> return it
+                if status_map.get(current_day, 0) == 0:
+                    return current_day
+                current_day += 1
+        except Exception as e:
+            print(f"Error calculating next pending day: {e}")
+            return 1
+        finally:
+            session.close()

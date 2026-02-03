@@ -1,14 +1,19 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, 
-                             QFrame, QListWidget, QSplitter, QPushButton, QInputDialog, QMessageBox, QListWidgetItem, QComboBox)
+                             QFrame, QListWidget, QSplitter, QPushButton, QInputDialog, QMessageBox, QListWidgetItem, QComboBox,
+                             QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
+from src.utils.shortcuts import register_shortcuts
 from src.controllers.tombola_controller import TombolaController
 from src.views.widgets.daily_grid import DailyGridWidget, DailyGridHeaderWidget
 
 class TombolaRow(QFrame):
     """Row for each game account - WITHOUT slots column"""
+    selectionChanged = pyqtSignal(bool)
+    rowClicked = pyqtSignal(object, Qt.KeyboardModifier)
     
     def __init__(self, game_account, controller, event_id):
         super().__init__()
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.game_account = game_account
         self.controller = controller
         
@@ -27,6 +32,11 @@ class TombolaRow(QFrame):
         layout.setContentsMargins(5, 5, 5, 5) 
         layout.setSpacing(10)
         self.setLayout(layout)
+
+        # 0. Checkbox for selection
+        self.checkbox = QCheckBox()
+        self.checkbox.stateChanged.connect(self._on_checkbox_changed)
+        layout.addWidget(self.checkbox)
 
         first_char = game_account.characters[0] if game_account.characters else None
 
@@ -56,14 +66,53 @@ class TombolaRow(QFrame):
         lbl_char.setFixedWidth(150)
         lbl_char.setStyleSheet("border: none; color: #d4af37; font-weight: bold; font-size: 13px;")
         
+        lbl_account.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        lbl_char.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        
         layout.addWidget(lbl_account)
         layout.addWidget(lbl_char)
         layout.addWidget(grid_widget, 1)
 
+    def mousePressEvent(self, event):
+        self.rowClicked.emit(self, event.modifiers())
+        super().mousePressEvent(event)
+
+    def _on_checkbox_changed(self, state):
+        selected = (state == Qt.CheckState.Checked.value)
+        self.update_selection_style(selected)
+        self.selectionChanged.emit(selected)
+
+    def is_selected(self):
+        return self.checkbox.isChecked()
+
+    def set_selected(self, selected):
+        self.checkbox.setChecked(selected)
+
+    def update_selection_style(self, selected):
+        if selected:
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #2d2d1b;
+                    border: 1px solid #d4af37;
+                    border-radius: 4px;
+                    margin-bottom: 2px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #1a1a1a;
+                    border: 1px solid #5d4d2b;
+                    border-radius: 4px;
+                    margin-bottom: 2px;
+                }
+            """)
+
 class StoreDetailsWidget(QWidget):
-    def __init__(self, store_data, controller, event_id):
+    def __init__(self, store_data, controller, event_id, view_parent):
         super().__init__()
         self.controller = controller
+        self.rows = []
         
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -108,6 +157,8 @@ class StoreDetailsWidget(QWidget):
         accounts = store_data.get('accounts', [])
         for game_account in accounts:
             row_widget = TombolaRow(game_account, controller, event_id)
+            row_widget.rowClicked.connect(view_parent.on_row_clicked)
+            self.rows.append(row_widget)
             layout.addWidget(row_widget)
 
 class TombolaView(QWidget):
@@ -119,10 +170,13 @@ class TombolaView(QWidget):
         self.server_name = server_name
         self.controller = TombolaController()
         
-        self.selected_event_id = None
         self.stores_data = []
+        self.current_details_widget = None
+        self.last_clicked_row = None
         
         self.init_ui()
+        self.setup_shortcuts()
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.load_events()
     
     def init_ui(self):
@@ -209,6 +263,47 @@ class TombolaView(QWidget):
         """)
         top_bar.addWidget(btn_add_event)
         
+        # Import Button
+        btn_import = QPushButton("📥 Importar")
+        btn_import.setFixedWidth(100)
+        btn_import.clicked.connect(self.on_import_requested)
+        btn_import.setStyleSheet("""
+            QPushButton {
+                background-color: #455a64;
+                color: white;
+                border: 2px solid #607d8b;
+                font-weight: bold;
+                border-radius: 5px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #607d8b;
+                border: 2px solid #90a4ae;
+            }
+        """)
+        top_bar.addWidget(btn_import)
+
+        btn_help = QPushButton("?")
+        btn_help.setFixedWidth(30)
+        btn_help.setFixedHeight(30)
+        btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_help.clicked.connect(self.show_help)
+        btn_help.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #ffca28;
+                border: 2px solid #ffca28;
+                border-radius: 15px;
+                font-weight: bold;
+                font-size: 16px;
+                padding-bottom: 2px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 202, 40, 0.1);
+            }
+        """)
+        top_bar.addWidget(btn_help)
+        
         layout.addLayout(top_bar)
         
         # Splitter: Store List (left) | Details (right)
@@ -255,6 +350,115 @@ class TombolaView(QWidget):
         
         splitter.setSizes([200, 800])
         layout.addWidget(splitter)
+
+        # --- BATCH ACTIONS TOOLBAR ---
+        self.batch_toolbar = QFrame()
+        self.batch_toolbar.setFixedHeight(50)
+        self.batch_toolbar.setStyleSheet("""
+            QFrame {
+                background-color: #2b2b2b;
+                border-top: 2px solid #5d4d2b;
+            }
+        """)
+        self.batch_toolbar.setVisible(False)
+        
+        batch_layout = QHBoxLayout(self.batch_toolbar)
+        self.lbl_batch_count = QLabel("0 seleccionadas")
+        self.lbl_batch_count.setStyleSheet("color: #d4af37; font-weight: bold;")
+        batch_layout.addWidget(self.lbl_batch_count)
+        
+        batch_layout.addStretch()
+        # Buttons
+        btn_done = QPushButton("✅ Hecho (1)")
+        btn_done.clicked.connect(lambda: self.apply_batch_status(1))
+        btn_done.setStyleSheet("background-color: #1b5e20; color: white; border: 1px solid #4caf50; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_done)
+        
+        btn_fail = QPushButton("❌ Fallido (2)")
+        btn_fail.clicked.connect(lambda: self.apply_batch_status(-1))
+        btn_fail.setStyleSheet("background-color: #b71c1c; color: white; border: 1px solid #f44336; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_fail)
+        
+        btn_reset = QPushButton("♻️ Reset (3)")
+        btn_reset.clicked.connect(lambda: self.apply_batch_status(0))
+        btn_reset.setStyleSheet("background-color: #455a64; color: white; border: 1px solid #90a4ae; padding: 5px 15px; border-radius: 3px;")
+        batch_layout.addWidget(btn_reset)
+        
+        layout.addWidget(self.batch_toolbar)
+
+    def setup_shortcuts(self):
+        register_shortcuts(self, {
+            'Ctrl+A': self.select_all_rows,
+            'Ctrl+D': self.deselect_all_rows,
+            '1': lambda: self.apply_batch_status(1),
+            '2': lambda: self.apply_batch_status(-1),
+            '3': lambda: self.apply_batch_status(0),
+        })
+
+    def select_all_rows(self):
+        if self.current_details_widget:
+            for row in self.current_details_widget.rows:
+                row.set_selected(True)
+
+    def deselect_all_rows(self):
+        if self.current_details_widget:
+            for row in self.current_details_widget.rows:
+                row.set_selected(False)
+
+    def apply_batch_status(self, status):
+        if not self.current_details_widget:
+            return
+            
+        selected_rows = [row for row in self.current_details_widget.rows if row.is_selected()]
+        if not selected_rows:
+            return
+            
+        # Use sequential logic
+        if not self.selected_event_id:
+            return
+
+        count = 0
+        for row in selected_rows:
+            char = row.game_account.characters[0] if row.game_account.characters else None
+            if char:
+                day_to_update = 1
+                if status == 0:
+                    # Reset logic: target last completed day
+                    next_day = self.controller.get_next_pending_day(char.id, self.selected_event_id)
+                    day_to_update = max(1, next_day - 1)
+                else:
+                    # Progress logic
+                    day_to_update = self.controller.get_next_pending_day(char.id, self.selected_event_id)
+                    
+                self.controller.update_daily_status(
+                    char.id, day_to_update, status, event_id=self.selected_event_id
+                )
+                count += 1
+        
+        
+        self.load_stores() # Refresh
+        QMessageBox.information(self, "Acción Batch", f"Se actualizaron {count} cuentas.")
+
+    def on_row_clicked(self, row, modifiers):
+        if not self.current_details_widget:
+            return
+            
+        rows = self.current_details_widget.rows
+        idx = rows.index(row)
+        
+        if modifiers & Qt.KeyboardModifier.ShiftModifier and self.last_clicked_row in rows:
+            # Range selection
+            start_idx = rows.index(self.last_clicked_row)
+            end_idx = idx
+            
+            step = 1 if start_idx < end_idx else -1
+            for i in range(start_idx, end_idx + step, step):
+                rows[i].set_selected(True)
+        elif modifiers & Qt.KeyboardModifier.ControlModifier:
+            row.set_selected(not row.is_selected())
+            
+        self.last_clicked_row = row
+        self.update_batch_toolbar()
     
     def load_events(self):
         self.combo_event.clear()
@@ -316,9 +520,25 @@ class TombolaView(QWidget):
         
         self.clear_details()
         
-        # Show details
-        details = StoreDetailsWidget(selected_store_data, self.controller, self.selected_event_id)
-        self.details_layout.addWidget(details)
+        self.clear_details()
+        
+        self.current_details_widget = StoreDetailsWidget(
+            selected_store_data, self.controller, self.selected_event_id, self
+        )
+        self.details_layout.addWidget(self.current_details_widget)
+        
+        for row in self.current_details_widget.rows:
+            row.selectionChanged.connect(self.update_batch_toolbar)
+            
+        self.update_batch_toolbar()
+
+    def update_batch_toolbar(self):
+        if not self.current_details_widget:
+            self.batch_toolbar.setVisible(False)
+            return
+        selected_count = sum(1 for row in self.current_details_widget.rows if row.is_selected())
+        self.lbl_batch_count.setText(f"{selected_count} seleccionadas")
+        self.batch_toolbar.setVisible(selected_count > 0)
     
     def clear_stores(self):
         self.store_list.clear()
@@ -349,3 +569,35 @@ class TombolaView(QWidget):
                 self.load_events()
             else:
                 QMessageBox.warning(self, "Error", "No se pudo crear la jornada.")
+
+    def on_import_requested(self):
+        from PyQt6.QtWidgets import QFileDialog
+        from src.utils.excel_importer import parse_account_file
+        from src.controllers.alchemy_controller import AlchemyController
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Importar Cuentas", "", "Excel/CSV Files (*.xlsx *.csv)"
+        )
+        
+        if not file_path:
+            return
+            
+        try:
+            import_data = parse_account_file(file_path)
+            # Use AlchemyController for importing since it has the generic method
+            # In a real refactor, this could be shared in a BaseController
+            controller = AlchemyController()
+            success, message = controller.bulk_import_accounts(self.server_id, import_data)
+            
+            if success:
+                QMessageBox.information(self, "Éxito", message)
+                self.load_stores() # Refresh list
+            else:
+                QMessageBox.warning(self, "Error de Importación", message)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error crítico al importar: {str(e)}")
+
+    def show_help(self):
+        from src.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
+        dialog = HelpShortcutsDialog(self)
+        dialog.exec()

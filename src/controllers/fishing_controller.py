@@ -106,3 +106,36 @@ class FishingController:
             return False
         finally:
             session.close()
+
+    def get_next_pending_week(self, char_id, year):
+        """
+        Returns the first (month, week) tuple that is pending (0) or missing.
+        Sequence: Month 1 Week 1 -> Month 1 Week 2 ... Month 12 Week 4
+        """
+        session = self.get_session()
+        try:
+            activities = session.query(FishingActivity).filter_by(
+                character_id=char_id, 
+                year=year
+            ).all()
+            
+            # Map "m_w" -> status
+            status_map = {}
+            for act in activities:
+                status_map[f"{act.month}_{act.week}"] = act.status_code
+            
+            # Iterate sequentially
+            for m in range(1, 13):
+                for w in range(1, 5):
+                    key = f"{m}_{w}"
+                    if status_map.get(key, 0) == 0:
+                        return m, w
+            
+            # If all done, return last valid slot or something else?
+            return 12, 4
+            
+        except Exception as e:
+            print(f"Error calculating next fishing week: {e}")
+            return 1, 1
+        finally:
+            session.close()
