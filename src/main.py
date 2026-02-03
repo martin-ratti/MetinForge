@@ -46,8 +46,7 @@ class MainWindow(QMainWindow):
         elif feature == "fishing":
             self.show_fishing(server_id, server_name)
         elif feature == "tombola":
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.information(None, "Tómbola", "Próximamente...")
+            self.show_tombola(server_id, server_name)
         else:
             print(f"Feature {feature} not implemented yet.")
 
@@ -62,6 +61,12 @@ class MainWindow(QMainWindow):
         # Volver al menu de features, no a seleccion de server
         self.alchemy_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
         self.setCentralWidget(self.alchemy_view)
+    
+    def show_tombola(self, server_id, server_name):
+        from src.views.tombola_view import TombolaView
+        self.tombola_view = TombolaView(server_id, server_name)
+        self.tombola_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
+        self.setCentralWidget(self.tombola_view)
 
 def main():
     app = QApplication(sys.argv)

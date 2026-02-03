@@ -21,6 +21,7 @@ class Server(Base):
 
     game_accounts = relationship("GameAccount", back_populates="server")
     alchemy_events = relationship("AlchemyEvent", back_populates="server")
+    tombola_events = relationship("TombolaEvent", back_populates="server")
 
 class StoreAccount(Base):
     __tablename__ = 'store_accounts'
@@ -52,6 +53,7 @@ class Character(Base):
     game_account = relationship("GameAccount", back_populates="characters")
     daily_cors = relationship("DailyCorActivity", back_populates="character")
     fishing_activities = relationship("FishingActivity", back_populates="character")
+    tombola_activities = relationship("TombolaActivity", back_populates="character")
 
 class FishingActivity(Base):
     __tablename__ = 'fishing_activities'
@@ -90,4 +92,26 @@ class DailyCorActivity(Base):
     character = relationship("Character", back_populates="daily_cors")
     event = relationship("AlchemyEvent", back_populates="daily_activities")
 
-# Aqu� irian logs de pesca...
+class TombolaEvent(Base):
+    __tablename__ = 'tombola_events'
+
+    id = Column(Integer, primary_key=True)
+    server_id = Column(Integer, ForeignKey('servers.id'))
+    name = Column(String(100), nullable=False)
+    created_at = Column(Date, default=datetime.date.today)
+
+    server = relationship("Server", back_populates="tombola_events")
+    tombola_activities = relationship("TombolaActivity", back_populates="event")
+
+class TombolaActivity(Base):
+    __tablename__ = 'tombola_activities'
+    
+    id = Column(Integer, primary_key=True)
+    day_index = Column(Integer, nullable=False)  # 1-31
+    status_code = Column(Integer, default=0)  # 0=Pendiente, 1=Hecho, -1=Fallido
+    
+    character_id = Column(Integer, ForeignKey('characters.id'))
+    event_id = Column(Integer, ForeignKey('tombola_events.id'))
+    
+    character = relationship("Character", back_populates="tombola_activities")
+    event = relationship("TombolaEvent", back_populates="tombola_activities")
