@@ -1,5 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
 from PyQt6.QtCore import Qt, pyqtSignal
+from src.views.widgets.feature_card_button import FeatureCardButton
+import os
 
 class FeatureSelectionView(QWidget):
     featureSelected = pyqtSignal(str) # "dailies", "fishing", "tombola"
@@ -9,73 +11,59 @@ class FeatureSelectionView(QWidget):
         super().__init__()
         self.flags = flags # {'dailies': bool, 'fishing': bool, 'tombola': bool}
         
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
         
-        # Header simple con botón atrás
-        # Opcional, pero util para volver a seleccionar servidor
+        # Cards container (horizontal)
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(20)
+        cards_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Estilo de botones gigantes - Metin2
-        btn_style = """
-            QPushButton {
-                background-color: #2b1d0e;
-                color: #d4af37;
-                font-size: 24px;
-                font-weight: bold;
-                border: 2px solid #5d4d2b;
-                border-radius: 0px;
-            }
-            QPushButton:hover {
-                background-color: #3d2b1f;
-                border: 2px solid #d4af37;
-                color: #ffffff;
-            }
-            QPushButton:pressed {
-                background-color: #d4af37;
-                color: #000000;
-            }
-        """
+        # Get assets path
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        assets_dir = os.path.join(base_dir, "src", "assets", "images")
         
-        # Boton Darias
+        # Boton Diarias
         if self.flags.get('has_dailies', True):
-            btn_dailies = QPushButton("Diarias (Alquimia, Cors)")
-            # Asumimos que QSizePolicy ya está importado arriba o lo importamos aquí correctamente
-            from PyQt6.QtWidgets import QSizePolicy
-            btn_dailies.setSizePolicy(
-                QSizePolicy.Policy.Expanding, 
-                QSizePolicy.Policy.Expanding
-            )
-            btn_dailies.setStyleSheet(btn_style)
+            cor_image = os.path.join(assets_dir, "cor.png")
+            btn_dailies = FeatureCardButton("Diarias\n(Alquimia, Cors)", cor_image)
             btn_dailies.clicked.connect(lambda: self.featureSelected.emit("dailies"))
-            layout.addWidget(btn_dailies)
+            cards_layout.addWidget(btn_dailies)
             
         # Boton Pesca
         if self.flags.get('has_fishing', True):
-            btn_fishing = QPushButton("Pesca")
-            btn_fishing.setSizePolicy(
-                 QSizePolicy.Policy.Expanding, 
-                 QSizePolicy.Policy.Expanding
-            )
-            btn_fishing.setStyleSheet(btn_style)
+            enchanted_image = os.path.join(assets_dir, "enchanted.png")
+            btn_fishing = FeatureCardButton("Pesca", enchanted_image)
             btn_fishing.clicked.connect(lambda: self.featureSelected.emit("fishing"))
-            layout.addWidget(btn_fishing)
+            cards_layout.addWidget(btn_fishing)
 
         # Boton Tombola
         if self.flags.get('has_tombola', True):
-            btn_tombola = QPushButton("Tómbola")
-            btn_tombola.setSizePolicy(
-                 QSizePolicy.Policy.Expanding, 
-                 QSizePolicy.Policy.Expanding
-            )
-            btn_tombola.setStyleSheet(btn_style)
+            talisman_image = os.path.join(assets_dir, "talisman.png")
+            btn_tombola = FeatureCardButton("Tómbola", talisman_image)
             btn_tombola.clicked.connect(lambda: self.featureSelected.emit("tombola"))
-            layout.addWidget(btn_tombola)
+            cards_layout.addWidget(btn_tombola)
 
-        # Boton Atras (Pequeño abajo o overlay? Por ahora abajo)
-        btn_back = QPushButton("Volver a Selección de Servidor")
-        btn_back.setFixedHeight(40)
-        btn_back.setStyleSheet("background-color: #550000; border: 1px solid #800000; color: #ffcccc; font-weight: bold;")
+        main_layout.addLayout(cards_layout)
+
+        # Boton Atras
+        btn_back = QPushButton("← Volver a Selección de Servidor")
+        btn_back.setFixedHeight(50)
+        btn_back.setStyleSheet("""
+            QPushButton {
+                background-color: #550000; 
+                border: 2px solid #800000; 
+                color: #ffcccc; 
+                font-weight: bold;
+                font-size: 14px;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #800000;
+                border: 2px solid #ff4444;
+            }
+        """)
         btn_back.clicked.connect(self.backRequested.emit)
-        layout.addWidget(btn_back)
+        main_layout.addWidget(btn_back)
