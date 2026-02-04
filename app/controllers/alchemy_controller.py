@@ -1,8 +1,8 @@
 from sqlalchemy.orm import joinedload
-from sqlalchemy import extract
+from sqlalchemy import extract, func
 from app.controllers.base_controller import BaseController
 # IMPORTANTE: Importamos todos los modelos necesarios para las relaciones
-from app.models.models import StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType
+from app.models.models import StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType, DailyCorRecord, AlchemyCounter
 from collections import defaultdict
 import datetime
 
@@ -409,3 +409,179 @@ class AlchemyController(BaseController):
             return 1
         finally:
             session.close()
+
+    # --- CORDS MANAGEMENT ---
+    def update_daily_cords(self, game_account_id, event_id, day_index, cords_count):
+        """Actualiza o crea el registro de cords para una cuenta en un día específico"""
+        if not event_id or not game_account_id:
+            return False
+            
+        session = self.Session()
+        try:
+            # Buscar registro existente
+            record = session.query(DailyCorRecord).filter_by(
+                game_account_id=game_account_id,
+                event_id=event_id,
+                day_index=day_index
+            ).first()
+            
+            if record:
+                record.cords_count = cords_count
+            else:
+                new_record = DailyCorRecord(
+                    game_account_id=game_account_id,
+                    event_id=event_id,
+                    day_index=day_index,
+                    cords_count=cords_count
+                )
+                session.add(new_record)
+            
+            session.commit()
+            print(f"✅ Cords actualizado: Account {game_account_id}, Day {day_index} -> {cords_count}")
+            return True
+        except Exception as e:
+            print(f"❌ Error al guardar cords: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def get_daily_cords(self, game_account_id, event_id):
+        """Obtiene todos los registros de cords de una cuenta para un evento"""
+        if not event_id or not game_account_id:
+            return {}
+            
+        session = self.Session()
+        try:
+            records = session.query(DailyCorRecord).filter_by(
+                game_account_id=game_account_id,
+                event_id=event_id
+            ).all()
+            
+            return {record.day_index: record.cords_count for record in records}
+        except Exception as e:
+            print(f"❌ Error al obtener cords: {e}")
+            return {}
+        finally:
+            session.close()
+
+    def get_total_cords(self, game_account_id, event_id):
+        """Calcula el total de cords acumulados de una cuenta en un evento"""
+        if not event_id or not game_account_id:
+            return 0
+            
+        session = self.Session()
+        try:
+            result = session.query(func.sum(DailyCorRecord.cords_count)).filter_by(
+                game_account_id=game_account_id,
+                event_id=event_id
+            ).scalar()
+            
+            return result or 0
+        except Exception as e:
+            print(f"❌ Error al calcular total cords: {e}")
+            return 0
+        finally:
+            session.close()
+
+    def get_event_cords_summary(self, event_id):
+        """Obtiene resumen de cords de todas las cuentas para un evento"""
+        if not event_id:
+            return {}
+            
+        session = self.Session()
+        try:
+            # Obtener totales por cuenta
+            results = session.query(
+                DailyCorRecord.game_account_id,
+                func.sum(DailyCorRecord.cords_count).label('total')
+            ).filter_by(event_id=event_id).group_by(
+                DailyCorRecord.game_account_id
+            ).all()
+            
+            return {acc_id: total for acc_id, total in results}
+        except Exception as e:
+            print(f"❌ Error al obtener resumen de cords: {e}")
+            return {}
+        finally:
+            session.close()
+
+    # --- ALCHEMY MANAGEMENT ---
+    def get_alchemy_counters(self, event_id):
+        """Obtiene todos los contadores de alquimia para un evento"""
+        if not event_id:
+            return {}
+            
+        session = self.Session()
+        try:
+            counters = session.query(AlchemyCounter).filter_by(event_id=event_id).all()
+            return {counter.alchemy_type: counter.count for counter in counters}
+        except Exception as e:
+            print(f"❌ Error al obtener contadores: {e}")
+            return {}
+        finally:
+            session.close()
+
+    def update_alchemy_count(self, event_id, alchemy_type, count):
+        """Actualiza el contador de un tipo de alquimia"""
+        if not event_id or not alchemy_type:
+            return False
+            
+        session = self.Session()
+        try:
+            counter = session.query(AlchemyCounter).filter_by(
+                event_id=event_id,
+                alchemy_type=alchemy_type
+            ).first()
+            
+            if counter:
+                counter.count = count
+            else:
+                new_counter = AlchemyCounter(
+                    event_id=event_id,
+                    alchemy_type=alchemy_type,
+                    count=count
+                )
+                session.add(new_counter)
+            
+            session.commit()
+            print(f"✅ Alquimia actualizada: {alchemy_type} -> {count}")
+            return True
+        except Exception as e:
+            print(f"❌ Error al actualizar alquimia: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def increment_alchemy(self, event_id, alchemy_type, amount=1):
+        """Incrementa el contador de un tipo de alquimia"""
+        if not event_id or not alchemy_type:
+            return False
+            
+        session = self.Session()
+        try:
+            counter = session.query(AlchemyCounter).filter_by(
+                event_id=event_id,
+                alchemy_type=alchemy_type
+            ).first()
+            
+            if counter:
+                counter.count += amount
+            else:
+                new_counter = AlchemyCounter(
+                    event_id=event_id,
+                    alchemy_type=alchemy_type,
+                    count=amount
+                )
+                session.add(new_counter)
+            
+            session.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Error al incrementar alquimia: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+

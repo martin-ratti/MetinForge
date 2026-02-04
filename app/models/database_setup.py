@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from app.utils.config import Config
 from app.models.base import Base
-from app.models.models import StoreAccount, GameAccount, Character, DailyCorActivity
+from app.models.models import StoreAccount, GameAccount, Character, DailyCorActivity, DailyCorRecord, AlchemyCounter
 
 def init_db():
     engine = create_engine(Config.get_db_url())

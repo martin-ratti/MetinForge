@@ -66,7 +66,7 @@ class AccountDialog(QDialog):
         self.txt_name.setPlaceholderText("Ej: Fragmetin11_S")
         layout.addWidget(self.txt_name)
 
-        layout.addWidget(QLabel("Nombre del Personaje:"))
+        layout.addWidget(QLabel("Nombre del Mezclador:"))
         self.txt_pj_name = QLineEdit() 
         self.txt_pj_name.setPlaceholderText("Ej: Reynares")
         layout.addWidget(self.txt_pj_name)

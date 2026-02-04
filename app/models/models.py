@@ -41,6 +41,7 @@ class GameAccount(Base):
     store_account = relationship("StoreAccount", back_populates="game_accounts")
     server = relationship("Server", back_populates="game_accounts")
     characters = relationship("Character", back_populates="game_account")
+    daily_cor_records = relationship("DailyCorRecord", back_populates="game_account")
 
 class Character(Base):
     __tablename__ = 'characters'
@@ -78,6 +79,8 @@ class AlchemyEvent(Base):
 
     server = relationship("Server", back_populates="alchemy_events")
     daily_activities = relationship("DailyCorActivity", back_populates="event")
+    daily_cor_records = relationship("DailyCorRecord", back_populates="event")
+    alchemy_counters = relationship("AlchemyCounter", back_populates="event")
 
 class DailyCorActivity(Base):
     __tablename__ = 'daily_cor_activities'
@@ -123,3 +126,28 @@ class TimerRecord(Base):
     name = Column(String(100), nullable=False)
     elapsed_seconds = Column(Integer, nullable=False)  # Total time in seconds
     created_at = Column(DateTime, default=datetime.datetime.now)
+
+class DailyCorRecord(Base):
+    """Registro de cords por cuenta por día dentro de un evento"""
+    __tablename__ = 'daily_cor_records'
+    
+    id = Column(Integer, primary_key=True)
+    game_account_id = Column(Integer, ForeignKey('game_accounts.id'))
+    event_id = Column(Integer, ForeignKey('alchemy_events.id'))
+    day_index = Column(Integer, nullable=False)  # Día del evento (1-based)
+    cords_count = Column(Integer, default=0)  # Cantidad de cords ese día
+    
+    game_account = relationship("GameAccount", back_populates="daily_cor_records")
+    event = relationship("AlchemyEvent", back_populates="daily_cor_records")
+
+class AlchemyCounter(Base):
+    """Contadores de alquimias por evento (globales del servidor)"""
+    __tablename__ = 'alchemy_counters'
+    
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey('alchemy_events.id'))
+    alchemy_type = Column(String(20), nullable=False)  # diamante, rubi, jade, zafiro, granate, onice
+    count = Column(Integer, default=0)
+    
+    event = relationship("AlchemyEvent", back_populates="alchemy_counters")
+

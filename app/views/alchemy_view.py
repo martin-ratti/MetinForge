@@ -9,15 +9,18 @@ from app.utils.shortcuts import register_shortcuts
 import datetime
 
 class AlchemyRow(QFrame):
-    """ Fila individual: Cuenta | Slots | PJ Principal | Grid """
+    """ Fila individual: Cuenta | Slots | PJ Principal | Grid | Cords Hoy | Total Cords """
     editRequested = pyqtSignal(object) # game_account object
     selectionChanged = pyqtSignal(bool)
     rowClicked = pyqtSignal(object, Qt.KeyboardModifier) # (self, modifiers)
+    cordsChanged = pyqtSignal(int, int, int)  # (account_id, day_index, cords_count)
 
-    def __init__(self, game_account, controller, event_id, total_days):
+    def __init__(self, game_account, controller, event_id, total_days, current_day=1, cords_summary=None):
         super().__init__()
         self.game_account = game_account
         self.controller = controller
+        self.event_id = event_id
+        self.current_day = current_day
         
         self.setFrameShape(QFrame.Shape.StyledPanel)
         # Metin2 Palette
@@ -91,6 +94,45 @@ class AlchemyRow(QFrame):
         layout.addWidget(lbl_char)
         layout.addWidget(grid_widget, 1) # Stretch factor 1 to take remaining space
         
+        # 4. CORDS HOY - SpinBox para ingresar cords del día actual
+        self.spin_cords = QSpinBox()
+        self.spin_cords.setRange(0, 999)
+        self.spin_cords.setFixedWidth(60)
+        self.spin_cords.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.spin_cords.setStyleSheet("""
+            QSpinBox {
+                background-color: #2b2b2b;
+                color: #00ff00;
+                border: 1px solid #5d4d2b;
+                border-radius: 3px;
+                padding: 2px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 14px;
+            }
+        """)
+        # Cargar valor actual de cords si existe
+        if cords_summary and game_account.id in cords_summary:
+            daily_cords = controller.get_daily_cords(game_account.id, event_id)
+            self.spin_cords.setValue(daily_cords.get(current_day, 0))
+        
+        self.spin_cords.valueChanged.connect(self._on_cords_changed)
+        layout.addWidget(self.spin_cords)
+
+    def _on_cords_changed(self, value):
+        """Llamado cuando cambia el spinbox de cords"""
+        if self.controller and self.event_id:
+            self.controller.update_daily_cords(
+                self.game_account.id, 
+                self.event_id, 
+                self.current_day, 
+                value
+            )
+            self.cordsChanged.emit(self.game_account.id, self.current_day, value)
+
+        
     def _on_checkbox_changed(self, state):
         selected = (state == Qt.CheckState.Checked.value)
         self.update_selection_style(selected)
@@ -136,7 +178,7 @@ class AlchemyRow(QFrame):
         super().mousePressEvent(event)
 
 class StoreDetailsWidget(QWidget):
-    def __init__(self, store_data, controller, view_parent, event_id, total_days):
+    def __init__(self, store_data, controller, view_parent, event_id, total_days, current_day=1, cords_summary=None):
         super().__init__()
         self.controller = controller
         self.rows = [] # Track account rows
@@ -169,6 +211,11 @@ class StoreDetailsWidget(QWidget):
         header_layout.setSpacing(10)
         header_container.setLayout(header_layout)
         
+        # Placeholder para el checkbox
+        checkbox_placeholder = QLabel("")
+        checkbox_placeholder.setFixedWidth(20)
+        header_layout.addWidget(checkbox_placeholder)
+        
         lbl_h1 = QLabel("CUENTA")
         lbl_h1.setFixedWidth(150)
         lbl_h1.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
@@ -178,7 +225,7 @@ class StoreDetailsWidget(QWidget):
         lbl_h2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_h2.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
-        lbl_h3 = QLabel("PERSONAJE")
+        lbl_h3 = QLabel("MEZCLADOR")
         lbl_h3.setFixedWidth(150)
         lbl_h3.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
@@ -190,16 +237,29 @@ class StoreDetailsWidget(QWidget):
         header_grid = DailyGridHeaderWidget(total_days=total_days)
         header_layout.addWidget(header_grid, 1) # Stretch factor 1
         
+        # Headers para CORDS (TOTAL se muestra en el panel de alquimias)
+        lbl_h_cords = QLabel("CORDS")
+        lbl_h_cords.setFixedWidth(60)
+        lbl_h_cords.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_h_cords.setStyleSheet("color: #00ff00; font-size: 10px; font-weight: bold;")
+        header_layout.addWidget(lbl_h_cords)
+        
         layout.addWidget(header_container)
         
         # Cuentas
         accounts = store_data.get('accounts', [])
         for game_account in accounts:
-            row_widget = AlchemyRow(game_account, controller, event_id, total_days)
+            row_widget = AlchemyRow(
+                game_account, controller, event_id, total_days, 
+                current_day=current_day, cords_summary=cords_summary
+            )
             row_widget.editRequested.connect(view_parent.on_edit_account_requested)
             row_widget.rowClicked.connect(view_parent.on_row_clicked)
+            # Conectar cambio de cords para actualizar total global
+            row_widget.cordsChanged.connect(view_parent.on_cords_changed)
             self.rows.append(row_widget)
             layout.addWidget(row_widget)
+
 
 class AlchemyView(QWidget):
     backRequested = pyqtSignal()
@@ -308,7 +368,15 @@ class AlchemyView(QWidget):
             QListWidget::item:hover { background-color: #303030; }
         """)
         self.store_list.itemClicked.connect(self.on_store_selected)
-        left_layout.addWidget(self.store_list)
+        left_layout.addWidget(self.store_list, 1)  # Stretch factor 1
+        
+        # --- WIDGET DE ALQUIMIAS ---
+        from app.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
+        self.alchemy_counters_widget = AlchemyCountersWidget(
+            controller=self.controller,
+            event_id=None  # Se actualizará cuando se seleccione un evento
+        )
+        left_layout.addWidget(self.alchemy_counters_widget)
         
         # --- RIGHT PANEL ---
         right_widget = QWidget()
@@ -539,7 +607,12 @@ class AlchemyView(QWidget):
             self.current_event = self.events_cache[0]
             
         self.combo_events.blockSignals(False)
-        # self.rebuild_header() # Removed
+        
+        # Actualizar widget de alquimias
+        if hasattr(self, 'alchemy_counters_widget'):
+            eid = self.current_event.id if self.current_event else None
+            self.alchemy_counters_widget.set_event(eid)
+        
         self.load_data()
 
     def prompt_create_event(self):
@@ -568,7 +641,10 @@ class AlchemyView(QWidget):
     def on_event_changed(self, index):
         if index < 0: return
         self.current_event = self.combo_events.itemData(index)
-        # self.rebuild_header() # Removed
+        # Actualizar widget de alquimias
+        if hasattr(self, 'alchemy_counters_widget'):
+            eid = self.current_event.id if self.current_event else None
+            self.alchemy_counters_widget.set_event(eid)
         self.load_data(preserve_selection=self.selected_email)
 
     # rebuild_header Removed
@@ -614,8 +690,15 @@ class AlchemyView(QWidget):
         eid = self.current_event.id if self.current_event else None
         total_days = self.current_event.total_days if self.current_event else 30
         
+        # Obtener resumen de cords para este evento
+        cords_summary = self.controller.get_event_cords_summary(eid) if eid else {}
+        
+        # Calcular el día actual (basado en cuántos días han pasado en el evento)
+        current_day = self._calculate_current_day()
+        
         self.current_details_widget = StoreDetailsWidget(
-            store_data, self.controller, self, eid, total_days
+            store_data, self.controller, self, eid, total_days,
+            current_day=current_day, cords_summary=cords_summary
         )
         # Connect selection signals for toolbar update
         for row in self.current_details_widget.rows:
@@ -623,6 +706,10 @@ class AlchemyView(QWidget):
             
         self.scroll_details.setWidget(self.current_details_widget)
         self.update_batch_toolbar()
+        
+        # Actualizar widget de alquimias si existe
+        if hasattr(self, 'alchemy_counters_widget'):
+            self.alchemy_counters_widget.set_event(eid)
 
     def clear_details(self):
         if hasattr(self, 'scroll_details') and self.scroll_details.widget():
@@ -630,6 +717,12 @@ class AlchemyView(QWidget):
             if widget:
                 widget.deleteLater()
             self.scroll_details.takeWidget()
+
+    def on_cords_changed(self, account_id, day_index, cords_count):
+        """Llamado cuando cambia el valor de cords en alguna fila"""
+        # Actualizar el total global en el widget de alquimias
+        if hasattr(self, 'alchemy_counters_widget'):
+            self.alchemy_counters_widget.update_cords_display()
 
     def prompt_add_email(self):
         email, ok = QInputDialog.getText(self, "Nuevo Correo", "Dirección de Email:")
@@ -700,3 +793,23 @@ class AlchemyView(QWidget):
         from app.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
         dialog = HelpShortcutsDialog(self)
         dialog.exec()
+
+    def _calculate_current_day(self):
+        """
+        Calcula el día actual del evento basándose en la fecha de creación.
+        Retorna 1 si no hay evento seleccionado o si el evento fue creado hoy.
+        """
+        if not self.current_event:
+            return 1
+        
+        created_at = self.current_event.created_at
+        if not created_at:
+            return 1
+        
+        today = datetime.date.today()
+        delta = (today - created_at).days + 1  # +1 porque el día 1 es el día de creación
+        
+        # Limitar al máximo de días del evento
+        max_days = self.current_event.total_days if self.current_event.total_days else 30
+        return min(max(1, delta), max_days)
+
