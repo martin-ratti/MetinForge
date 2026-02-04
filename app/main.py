@@ -1,0 +1,99 @@
+import sys
+from PyQt6.QtWidgets import QApplication, QMainWindow
+from qt_material import apply_stylesheet
+
+from app.views.alchemy_view import AlchemyView
+from app.views.server_selection_view import ServerSelectionView
+from app.views.main_menu_view import MainMenuView
+import os
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("MetinForge Manager v1.0")
+        self.setGeometry(100, 100, 1400, 900)
+        
+        self.timer_window = None  # Floating timer reference
+        
+        self.show_main_menu()
+    
+    def show_main_menu(self):
+        self.menu_view = MainMenuView()
+        self.menu_view.navigate_to_servers.connect(self.show_server_selection)
+        self.menu_view.open_timer.connect(self.show_timer)
+        self.setCentralWidget(self.menu_view)
+
+    def show_server_selection(self):
+        self.selection_view = ServerSelectionView()
+        self.selection_view.serverSelected.connect(self.show_feature_selection)
+        self.selection_view.backRequested.connect(self.show_main_menu)
+        self.setCentralWidget(self.selection_view)
+
+    def show_feature_selection(self, server_id, server_name):
+        # Obtener flags del servidor
+        from app.controllers.alchemy_controller import AlchemyController
+        controller = AlchemyController()
+        flags = controller.get_server_flags(server_id)
+        
+        from app.views.feature_selection_view import FeatureSelectionView
+        self.feature_view = FeatureSelectionView(server_name, flags)
+        self.feature_view.featureSelected.connect(lambda feature: self.on_feature_selected(feature, server_id, server_name))
+        self.feature_view.backRequested.connect(self.show_server_selection)
+        self.setCentralWidget(self.feature_view)
+
+    def on_feature_selected(self, feature, server_id, server_name):
+        if feature == "dailies":
+            self.show_alchemy(server_id, server_name)
+        elif feature == "fishing":
+            self.show_fishing(server_id, server_name)
+        elif feature == "tombola":
+            self.show_tombola(server_id, server_name)
+        else:
+            print(f"Feature {feature} not implemented yet.")
+
+    def show_fishing(self, server_id, server_name):
+        from app.views.fishing_view import FishingView
+        self.fishing_view = FishingView(server_id, server_name)
+        self.fishing_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
+        self.setCentralWidget(self.fishing_view)
+
+    def show_alchemy(self, server_id, server_name):
+        self.alchemy_view = AlchemyView(server_id, server_name)
+        # Volver al menu de features, no a seleccion de server
+        self.alchemy_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
+        self.setCentralWidget(self.alchemy_view)
+    
+    def show_tombola(self, server_id, server_name):
+        from app.views.tombola_view import TombolaView
+        self.tombola_view = TombolaView(server_id, server_name)
+        self.tombola_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
+        self.setCentralWidget(self.tombola_view)
+    
+    def show_timer(self):
+        from app.views.widgets.floating_timer import FloatingTimer
+        if self.timer_window is None or not self.timer_window.isVisible():
+            self.timer_window = FloatingTimer()
+            self.timer_window.show()
+            self.showMinimized()  # Minimize main window
+        else:
+            # Bring to front if already open
+            self.timer_window.raise_()
+            self.timer_window.activateWindow()
+
+def main():
+    app = QApplication(sys.argv)
+    
+    # Cargar estilo Metin2
+    style_path = os.path.join(os.path.dirname(__file__), "styles", "metin2.qss")
+    if os.path.exists(style_path):
+        with open(style_path, "r") as f:
+            app.setStyleSheet(f.read())
+    else:
+        print("⚠️ No se encontró el estilo Metin2, usando default.")
+    
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()

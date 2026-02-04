@@ -4,3 +4,6 @@ pymysql
 python-dotenv
 matplotlib
 qt-material
+pytest
+pytest-qt
+pytest-cov
