@@ -23,7 +23,7 @@ class FeatureSelectionView(QWidget):
         
         # Get assets path
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        assets_dir = os.path.join(base_dir, "src", "assets", "images")
+        assets_dir = os.path.join(base_dir, "app", "assets", "images")
         
         # Boton Diarias
         if self.flags.get('has_dailies', True):
