@@ -1,90 +1,178 @@
-/* Metin2 Theme QSS */
+/* MetinForge Theme - Metin2 PRO MAX */
 
-/* Fondo General */
-QMainWindow, QWidget {
-    background-color: #121212;
-    color: #e0e0e0;
+/* === GLOBAL SETTINGS === */
+QMainWindow, QDialog, QWidget {
+    background-color: #121212; /* Abyss Black */
+    color: #e0e0e0; /* Silver Text */
     font-family: "Segoe UI", "Arial", sans-serif;
+    font-size: 14px;
+    selection-background-color: #5d4d2b;
+    selection-color: #ffffff;
 }
 
-/* ScrollArea y Contenedores */
-QScrollArea, QFrame {
-    background-color: #121212;
-    border: none;
-}
-
-/* Etiquetas (Labels) */
+/* === TYPOGRAPHY === */
 QLabel {
-    color: #dfdfdf;
-    font-size: 14px;
+    color: #e0e0e0;
 }
 
-/* Headers / Títulos Importantes (Dorado Metin) */
+/* Headers */
 QLabel#header, QLabel[class="header"] {
-    color: #d4af37; /* Gold */
+    color: #d4af37; /* Classic Gold */
     font-weight: bold;
-    font-size: 20px;
+    font-size: 18px;
+    padding: 8px 0;
     border-bottom: 2px solid #5d4d2b;
-    padding-bottom: 5px;
+    margin-bottom: 10px;
 }
 
-/* Botones Estilo Metin */
-QPushButton {
-    background-color: #2b2b2b;
-    color: #f0c674; /* Gold Text */
-    border: 1px solid #5d4d2b; /* Dark Gold Border */
+/* Subtitles / Labels muted */
+QLabel[class="muted"] {
+    color: #a0a0a0; /* Iron */
+    font-size: 12px;
+}
+
+/* === CONTAINERS === */
+QFrame, QGroupBox {
+    border: 1px solid #333333;
     border-radius: 4px;
-    padding: 8px 16px;
+    margin-top: 10px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+    color: #d4af37;
     font-weight: bold;
-    font-size: 14px;
+}
+
+QScrollArea {
+    border: none;
+    background-color: transparent;
+}
+
+/* === BUTTONS === */
+QPushButton {
+    background-color: #2b2b2b; /* Armor Gray */
+    color: #f0c674; /* Soft Gold */
+    border: 1px solid #5d4d2b; /* Antique Bronze */
+    border-radius: 3px;
+    padding: 6px 16px;
+    font-weight: bold;
+    min-height: 24px;
 }
 
 QPushButton:hover {
-    background-color: #3e3e3e;
-    border: 1px solid #d4af37; /* Bright Gold Border */
+    background-color: #3e3e3e; /* Steel Gray - Lighten */
+    border-color: #d4af37; /* Bright Gold Border */
     color: #ffffff;
 }
 
 QPushButton:pressed {
-    background-color: #5d4d2b; /* Dark Gold Background */
-    color: #ffffff;
+    background-color: #1a1a1a; /* Darker Press */
+    border-color: #8a7224;
 }
 
-/* Botones de Acción Crítica (Rojo/Borgoña) */
-QPushButton#danger {
-    background-color: #550000;
+QPushButton:disabled {
+    background-color: #1a1a1a;
+    border-color: #333333;
+    color: #666666;
+}
+
+/* Primary / Action Button */
+QPushButton[class="primary"] {
+    background-color: #4a3b18; /* Deep Gold Background */
+    border: 1px solid #d4af37;
+    color: #ffd700;
+}
+
+/* Danger Button */
+QPushButton#danger, QPushButton[class="danger"] {
+    background-color: #3f0000;
     border: 1px solid #800000;
     color: #ffcccc;
 }
-QPushButton#danger:hover {
-    background-color: #800000;
-    border: 1px solid #ff4444;
-}
-
-/* Listas */
-QListWidget {
-    background-color: #1a1a1a;
-    border: 1px solid #333;
-    color: #d4af37;
-}
-QListWidget::item {
-    padding: 10px;
-}
-QListWidget::item:selected {
-    background-color: #3d3d3d;
+QPushButton#danger:hover, QPushButton[class="danger"]:hover {
+    background-color: #8b0000;
+    border-color: #ff4444;
     color: #ffffff;
-    border-left: 3px solid #d4af37;
 }
 
-/* Splitter */
-QSplitter::handle {
-    background-color: #333;
-}
-
-/* Inputs / SpinBoxes */
-QSpinBox {
-    background-color: #2b2b2b;
-    color: #d4af37;
+/* === INPUTS === */
+QLineEdit, QSpinBox, QComboBox, QPlainTextEdit {
+    background-color: #1a1a1a; /* Dark Charcoal */
     border: 1px solid #5d4d2b;
-    padding: 4px;
+    border-radius: 3px;
+    padding: 5px;
+    color: #ffffff;
+    selection-background-color: #d4af37;
+    selection-color: #000000;
+}
+
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus {
+    border: 1px solid #d4af37; /* Gold Glow */
+    background-color: #222222;
+}
+
+/* SpinBox Buttons */
+QSpinBox::up-button, QSpinBox::down-button {
+    background-color: #2b2b2b;
+    border: none;
+    width: 16px;
+}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background-color: #3e3e3e;
+}
+
+/* === LISTS & TABLES === */
+QListWidget, QTableWidget, QTreeWidget {
+    background-color: #1a1a1a;
+    border: 1px solid #333333;
+    outline: none;
+}
+
+QListWidget::item {
+    padding: 8px;
+    border-bottom: 1px solid #222222;
+}
+
+QListWidget::item:hover {
+    background-color: #252525;
+}
+
+QListWidget::item:selected {
+    background-color: #2d2d1b; /* Gold Tint Dark */
+    border-left: 3px solid #d4af37;
+    color: #ffffff;
+}
+
+/* === SCROLLBARS (For modern feel) === */
+QScrollBar:vertical {
+    border: none;
+    background: #121212;
+    width: 10px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #5d4d2b;
+    min-height: 20px;
+    border-radius: 2px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #8a7224;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    border: none;
+    background: #121212;
+    height: 10px;
+    margin: 0px;
+}
+QScrollBar::handle:horizontal {
+    background: #5d4d2b;
+    min-width: 20px;
+    border-radius: 2px;
 }
