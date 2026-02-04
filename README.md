@@ -190,4 +190,3 @@ Para maximizar la eficiencia ("Productivity First"), la aplicación soporta acci
 <small>Desarrollado con ❤️ y mucho café por Martín Ratti</small>
 </div>
 
-```
