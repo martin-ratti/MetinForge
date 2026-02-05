@@ -1,4 +1,4 @@
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, joinedload
 from sqlalchemy import create_engine
 from app.utils.config import Config
 from app.models.models import Server, StoreAccount, GameAccount, Character, TombolaEvent, TombolaActivity
@@ -28,11 +28,15 @@ class TombolaController(BaseController):
     
     def create_tombola_event(self, server_id, event_name):
         """Create a new tombola event (jornada)"""
+        if not event_name or not event_name.strip():
+            print("❌ Error: Event name cannot be empty.")
+            return None
+
         session = self.get_session()
         try:
             event = TombolaEvent(
                 server_id=server_id,
-                name=event_name
+                name=event_name.strip()
             )
             session.add(event)
             session.commit()
@@ -50,57 +54,53 @@ class TombolaController(BaseController):
         """
         Get data for tombola dashboard, filtered by event.
         Returns empty if no event selected.
+        Optimized.
         """
         if not server_id or not event_id:
             return []
             
         session = self.Session()
         try:
-            # Query stores that have game_accounts on this server
-            query = session.query(StoreAccount).filter(
-                StoreAccount.game_accounts.any(GameAccount.server_id == server_id)
-            )
+            # 1. Eager load Store -> Games -> Chars
+            query = session.query(StoreAccount).options(
+                joinedload(StoreAccount.game_accounts).joinedload(GameAccount.characters)
+            ).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
             
-            stores_data = query.all()
+            stores_data = query.unique().all()
             
+            # 2. Collect char IDs and fetch activities
+            all_char_ids = []
+            for store in stores_data:
+                for ga in store.game_accounts:
+                    if ga.server_id == server_id:
+                        for char in ga.characters:
+                            all_char_ids.append(char.id)
+            
+            activity_map = {}
+            if all_char_ids:
+                activities = session.query(TombolaActivity).filter(
+                    TombolaActivity.event_id == event_id,
+                    TombolaActivity.character_id.in_(all_char_ids)
+                ).all()
+                for act in activities:
+                    if act.character_id not in activity_map: activity_map[act.character_id] = {}
+                    activity_map[act.character_id][act.day_index] = act.status_code
+
+            # 3. Build result
             result = []
             for store in stores_data:
-                store_entry = {
-                    'store': store,
-                    'accounts': []
-                }
-                
-                # Get game accounts for this store on this server
-                accounts = session.query(GameAccount).filter(
-                    GameAccount.store_account_id == store.id,
-                    GameAccount.server_id == server_id
-                ).all()
-                
+                store_entry = {'store': store, 'accounts': []}
                 valid_accounts = []
-                for ga in accounts:
-                    # Get characters
-                    chars = session.query(Character).filter(
-                        Character.game_account_id == ga.id
-                    ).all()
+                for ga in store.game_accounts:
+                    if ga.server_id != server_id: continue
                     
-                    if not chars:
-                        continue
+                    if not ga.characters: continue
+
+                    first_char = ga.characters[0]
+                    ga.current_event_activity = activity_map.get(first_char.id, {})
+                    # ga.characters implies it has characters because of the eager load check?
+                    # logic in original code: if not chars continue.
                     
-                    # Get tombola activities for first character in this event
-                    first_char = chars[0]
-                    activities = session.query(TombolaActivity).filter(
-                        TombolaActivity.character_id == first_char.id,
-                        TombolaActivity.event_id == event_id
-                    ).all()
-                    
-                    # Build activity map
-                    activity_map = {}
-                    for act in activities:
-                        activity_map[act.day_index] = act.status_code
-                    
-                    # Attach to game_account
-                    ga.current_event_activity = activity_map
-                    ga.characters = chars
                     valid_accounts.append(ga)
                 
                 if valid_accounts:

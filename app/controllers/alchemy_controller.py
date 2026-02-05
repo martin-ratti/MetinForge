@@ -22,6 +22,10 @@ class AlchemyController(BaseController):
         session = self.Session()
         from app.models.models import Server
         try:
+            if not name or not name.strip():
+                print("❌ Error: Server name cannot be empty.")
+                return False
+
             if flags is None:
                 flags = {'dailies': True, 'fishing': True, 'tombola': True}
 
@@ -30,7 +34,7 @@ class AlchemyController(BaseController):
             # Assuming `name` is validated elsewhere or is not expected to be empty.
             
             new_server = Server(
-                name=name,
+                name=name.strip(),
                 has_dailies=flags.get('dailies', True),
                 has_fishing=flags.get('fishing', True),
                 has_tombola=flags.get('tombola', True)
@@ -237,47 +241,62 @@ class AlchemyController(BaseController):
         """
         Retorna datos filtrados por EVENTO.
         Si no hay evento seleccionado, retorna vacío.
+        Optimized.
         """
         if not server_id or not event_id:
             return []
             
         session = self.Session()
         try:
-            # Consultamos stores que tengan game_accounts en este server
-            query = session.query(StoreAccount).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
+            # 1. Eager load Store -> Games -> Chars
+            query = session.query(StoreAccount).options(
+                joinedload(StoreAccount.game_accounts).joinedload(GameAccount.characters)
+            ).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
             
             if store_email:
                 query = query.filter(StoreAccount.email == store_email)
             
-            stores = query.all()
+            stores = query.unique().all()
             
-            grouped_data = {}
-            
+            # 2. Collect char IDs
+            all_char_ids = []
             for store in stores:
-                game_accounts = [acc for acc in store.game_accounts if acc.server_id == server_id]
-                if not game_accounts: continue
-                
-                if store.id not in grouped_data:
-                    grouped_data[store.id] = {'store': store, 'accounts': []}
-                
-                for game_acc in game_accounts:
-                    # OBTENER ACTIVIDAD del EVENTO seleccionado
+                for acc in store.game_accounts:
+                    if acc.server_id == server_id:
+                        for char in acc.characters:
+                            all_char_ids.append(char.id)
+
+            # 3. Bulk fetch activities
+            activity_map = {}
+            if all_char_ids:
+                activities = session.query(DailyCorActivity).filter(
+                    DailyCorActivity.event_id == event_id,
+                    DailyCorActivity.character_id.in_(all_char_ids)
+                ).all()
+                for act in activities:
+                    if act.character_id not in activity_map: activity_map[act.character_id] = {}
+                    activity_map[act.character_id][act.day_index] = act.status_code
+            
+            # 4. Construct result
+            grouped_data = []
+            for store in stores:
+                store_entry = {'store': store, 'accounts': []}
+                has_accounts = False
+                for game_acc in store.game_accounts:
+                    if game_acc.server_id != server_id: continue
+                    has_accounts = True
+                    
                     if game_acc.characters:
                         first_char = game_acc.characters[0]
-                        # Filter by event_id
-                        logs = session.query(DailyCorActivity).filter(
-                            DailyCorActivity.character_id == first_char.id,
-                            DailyCorActivity.event_id == event_id
-                        ).all()
-                        
-                        # Map day_index -> status
-                        game_acc.current_event_activity = {log.day_index: log.status_code for log in logs}
+                        game_acc.current_event_activity = activity_map.get(first_char.id, {})
                     else:
                         game_acc.current_event_activity = {}
                         
-                    grouped_data[store.id]['accounts'].append(game_acc)
+                    store_entry['accounts'].append(game_acc)
+                
+                if has_accounts: grouped_data.append(store_entry)
 
-            return list(grouped_data.values())
+            return grouped_data
 
         except Exception as e:
             print(f"❌ Error en Controller: {e}")

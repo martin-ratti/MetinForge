@@ -126,7 +126,7 @@ class StoreDetailsWidget(QWidget):
         title_layout.setContentsMargins(10, 5, 0, 5) 
         title_widget.setLayout(title_layout)
         title = QLabel(f"📧 {store_data['store'].email}")
-        title.setStyleSheet("font-size: 18px; color: #d4af37; font-weight: bold; text-shadow: 1px 1px black;")
+        title.setStyleSheet("font-size: 18px; color: #d4af37; font-weight: bold;")
         title_layout.addWidget(title)
         layout.addWidget(title_widget)
         

@@ -35,7 +35,6 @@ class MainMenuView(QWidget):
             font-weight: bold; 
             color: #d4af37; 
             font-family: 'Serif';
-            text-shadow: 2px 2px #000;
         """)
         container_layout.addWidget(title)
         

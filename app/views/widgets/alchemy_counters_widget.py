@@ -91,7 +91,7 @@ class AlchemyCountersWidget(QFrame):
             font-size: 16px; 
             font-weight: bold; 
             color: #d4af37; 
-            text-shadow: 1px 1px black;
+            /* text-shadow: 1px 1px black; Removed unsupported property */
             border: none;
         """)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
