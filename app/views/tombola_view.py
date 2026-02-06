@@ -18,19 +18,21 @@ class TombolaRow(QFrame):
         self.controller = controller
         
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        # Metin2 Palette
+        # Metin2 Palette: Compact
         self.setStyleSheet("""
             QFrame {
                 background-color: #1a1a1a;
-                border: 1px solid #5d4d2b;
-                border-radius: 4px;
-                margin-bottom: 2px;
+                border: none;
+                border-bottom: 1px solid #333;
+                margin: 0px;
             }
+            QCheckBox { spacing: 5px; }
+            QCheckBox::indicator { width: 14px; height: 14px; }
         """)
         
         layout = QHBoxLayout()
-        layout.setContentsMargins(5, 5, 5, 5) 
-        layout.setSpacing(10)
+        layout.setContentsMargins(2, 2, 2, 2) 
+        layout.setSpacing(5)
         self.setLayout(layout)
 
         # 0. Checkbox for selection
@@ -38,7 +40,9 @@ class TombolaRow(QFrame):
         self.checkbox.stateChanged.connect(self._on_checkbox_changed)
         layout.addWidget(self.checkbox)
 
-        first_char = game_account.characters[0] if game_account.characters else None
+        # Sort characters by ID to ensure consistency (Fixes "PJ" issue)
+        chars = sorted(game_account.characters, key=lambda x: x.id)
+        first_char = chars[0] if chars else None
 
         # Grid Activity Map
         activity_map = getattr(game_account, 'current_event_activity', {})
@@ -55,7 +59,7 @@ class TombolaRow(QFrame):
 
         # 1. Account Name
         lbl_account = QLabel(game_account.username)
-        lbl_account.setFixedWidth(150)
+        lbl_account.setFixedWidth(130) # Compact Std
         lbl_account.setStyleSheet("border: none; color: #e0e0e0; font-weight: bold; font-size: 12px;")
         
         # 2. Character Name (NO SLOTS)
@@ -63,7 +67,7 @@ class TombolaRow(QFrame):
         display_name = char_name.split('_')[0] if '_' in char_name else char_name
         
         lbl_char = QLabel(display_name)
-        lbl_char.setFixedWidth(150)
+        lbl_char.setFixedWidth(130) # Compact Std
         lbl_char.setStyleSheet("border: none; color: #d4af37; font-weight: bold; font-size: 13px;")
         
         lbl_account.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -102,9 +106,9 @@ class TombolaRow(QFrame):
             self.setStyleSheet("""
                 QFrame {
                     background-color: #1a1a1a;
-                    border: 1px solid #5d4d2b;
-                    border-radius: 4px;
-                    margin-bottom: 2px;
+                    border: none;
+                    border-bottom: 1px solid #333;
+                    margin: 0px;
                 }
             """)
 
@@ -133,16 +137,21 @@ class StoreDetailsWidget(QWidget):
         # Header (WITHOUT SLOTS)
         header_container = QWidget()
         header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(5, 5, 5, 5) 
-        header_layout.setSpacing(10)
+        header_layout.setContentsMargins(2, 2, 2, 2) 
+        header_layout.setSpacing(5)
         header_container.setLayout(header_layout)
         
+        # Checkbox Placeholder
+        lbl_chk = QLabel("")
+        lbl_chk.setFixedWidth(24) # 14px indicator + margins
+        header_layout.addWidget(lbl_chk)
+
         lbl_h1 = QLabel("CUENTA")
-        lbl_h1.setFixedWidth(150)
+        lbl_h1.setFixedWidth(130) # Match Row
         lbl_h1.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
         lbl_h3 = QLabel("PERSONAJE")
-        lbl_h3.setFixedWidth(150)
+        lbl_h3.setFixedWidth(130) # Match Row
         lbl_h3.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
         header_layout.addWidget(lbl_h1)
@@ -339,9 +348,12 @@ class TombolaView(QWidget):
         splitter.addWidget(self.store_list)
         
         # Right Panel: Store Details
+        from app.utils.styles import SCROLLBAR_STYLESHEET
         self.details_scroll = QScrollArea()
         self.details_scroll.setWidgetResizable(True)
+        self.details_scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }" + SCROLLBAR_STYLESHEET)
         self.details_widget = QWidget()
+        self.details_widget.setStyleSheet("background-color: transparent;")
         self.details_layout = QVBoxLayout()
         self.details_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.details_widget.setLayout(self.details_layout)

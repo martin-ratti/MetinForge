@@ -256,7 +256,8 @@ class AlchemyController(BaseController):
             if store_email:
                 query = query.filter(StoreAccount.email == store_email)
             
-            stores = query.unique().all()
+            # Remove .unique() as it is not available on Query objects and not needed with .any() filter usually
+            stores = query.all()
             
             # 2. Collect char IDs
             all_char_ids = []

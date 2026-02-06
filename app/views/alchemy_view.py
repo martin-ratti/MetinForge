@@ -23,22 +23,28 @@ class AlchemyRow(QFrame):
         self.current_day = current_day
         
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        # Metin2 Palette
+        # Metin2 Palette - Compact Style
         self.setStyleSheet("""
             QFrame {
                 background-color: #1a1a1a;
-                border: 1px solid #5d4d2b;
-                border-radius: 4px;
-                margin-bottom: 2px;
+                border-bottom: 1px solid #333; /* Only bottom border for separator feel */
+                border-radius: 0px;
+                margin: 0px;
+            }
+            QCheckBox {
+                spacing: 5px;
+            }
+            QCheckBox::indicator {
+                width: 14px;
+                height: 14px;
             }
         """)
         
         # Use QHBoxLayout to match Header
         layout = QHBoxLayout()
-        # Margins: Left, Top, Right, Bottom
-        # We use consistent margins
-        layout.setContentsMargins(5, 5, 5, 5) 
-        layout.setSpacing(10)
+        # Compact Margins: Left, Top, Right, Bottom
+        layout.setContentsMargins(2, 2, 2, 2) 
+        layout.setSpacing(5)
         self.setLayout(layout)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
@@ -48,7 +54,9 @@ class AlchemyRow(QFrame):
         layout.addWidget(self.checkbox)
 
         # 3. Nombre Personaje (Principal/Visual)
-        first_char = game_account.characters[0] if game_account.characters else None
+        # Sort characters by ID to ensure we pick the first created one (The Alchemist)
+        chars = sorted(game_account.characters, key=lambda x: x.id) if game_account.characters else []
+        first_char = chars[0] if chars else None
 
         # Grid Activity Map
         activity_map = getattr(game_account, 'current_event_activity', {})
@@ -66,7 +74,7 @@ class AlchemyRow(QFrame):
 
         # 1. Nombre Cuenta
         lbl_account = QLabel(game_account.username)
-        lbl_account.setFixedWidth(150)
+        lbl_account.setFixedWidth(130) # Compact Std
         lbl_account.setStyleSheet("border: none; color: #e0e0e0; font-weight: bold; font-size: 12px;")
         
         # 2. Cantidad Slots
@@ -77,11 +85,11 @@ class AlchemyRow(QFrame):
         lbl_slots.setStyleSheet("background-color: #2b2b2b; border: 1px solid #5d4d2b; color: #d4af37; border-radius: 2px; padding: 2px;")
 
         # 3. Nombre Personaje
-        char_name = first_char.name if first_char else "-"
-        display_name = char_name.split('_')[0] if '_' in char_name else char_name
+        # Just show the name directly. The Import Controller ensures the first one is the Alchemist.
+        display_name = first_char.name if first_char else "-"
         
         lbl_char = QLabel(display_name)
-        lbl_char.setFixedWidth(150)
+        lbl_char.setFixedWidth(130) # Compact Std
         lbl_char.setStyleSheet("border: none; color: #d4af37; font-weight: bold; font-size: 13px;")
         
         # Ensure clicks on labels propagate to the row
@@ -151,17 +159,17 @@ class AlchemyRow(QFrame):
                 QFrame {
                     background-color: #2d2d1b;
                     border: 1px solid #d4af37;
-                    border-radius: 4px;
-                    margin-bottom: 2px;
+                    border-radius: 2px;
+                    margin: 0px;
                 }
             """)
         else:
             self.setStyleSheet("""
                 QFrame {
                     background-color: #1a1a1a;
-                    border: 1px solid #5d4d2b;
-                    border-radius: 4px;
-                    margin-bottom: 2px;
+                    border: none;
+                    border-bottom: 1px solid #333;
+                    margin: 0px;
                 }
             """)
 
@@ -187,7 +195,11 @@ class StoreDetailsWidget(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
         self.setLayout(layout)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet("background-color: transparent;")
         
         # Título
         title_widget = QWidget()
@@ -203,13 +215,23 @@ class StoreDetailsWidget(QWidget):
         # Must match AlchemyRow layout EXACTLY
         header_container = QWidget()
         header_layout = QHBoxLayout()
-        # Match AlchemyRow margins: (5, 5, 5, 5) - but here maybe just 0 vertical padding? 
-        # Using (5, 0, 5, 0) might cause width mismatch if AlchemyRow QFrame has borders.
-        # AlchemyRow has stylesheet border-radius 4px. Usually border 0 unless specified.
-        # Let's try to match horizontal margins exactly.
-        header_layout.setContentsMargins(5, 5, 5, 5) 
-        header_layout.setSpacing(10)
+        # Match AlchemyRow margins
+        header_layout.setContentsMargins(2, 2, 2, 2) 
+        header_layout.setSpacing(5)
         header_container.setLayout(header_layout)
+        
+        # Style header container to match row structure visually but distinct
+        header_container.setStyleSheet("""
+            QWidget {
+                background-color: #102027;
+                border: 1px solid #37474f;
+                border-radius: 4px;
+                margin-bottom: 5px;
+            }
+            QLabel {
+                border: none;
+            }
+        """)
         
         # Placeholder para el checkbox
         checkbox_placeholder = QLabel("")
@@ -217,7 +239,7 @@ class StoreDetailsWidget(QWidget):
         header_layout.addWidget(checkbox_placeholder)
         
         lbl_h1 = QLabel("CUENTA")
-        lbl_h1.setFixedWidth(150)
+        lbl_h1.setFixedWidth(130) # Compact Std
         lbl_h1.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
         lbl_h2 = QLabel("SLOTS")
@@ -226,7 +248,7 @@ class StoreDetailsWidget(QWidget):
         lbl_h2.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
         lbl_h3 = QLabel("MEZCLADOR")
-        lbl_h3.setFixedWidth(150)
+        lbl_h3.setFixedWidth(130) # Compact Std
         lbl_h3.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: bold;")
         
         header_layout.addWidget(lbl_h1)
@@ -419,9 +441,10 @@ class AlchemyView(QWidget):
         # self.header_frame = QFrame()
         # ...
         
+        from app.utils.styles import SCROLLBAR_STYLESHEET
         self.scroll_details = QScrollArea()
         self.scroll_details.setWidgetResizable(True)
-        self.scroll_details.setStyleSheet("QScrollArea { border: none; }")
+        self.scroll_details.setStyleSheet("QScrollArea { border: none; background-color: transparent; }" + SCROLLBAR_STYLESHEET)
         
         # The details_container and details_layout are no longer needed as setWidget will replace the entire content
         # self.details_container = QWidget()
@@ -431,7 +454,7 @@ class AlchemyView(QWidget):
         # self.details_container.setLayout(self.details_layout)
         
         # self.scroll.setWidget(self.details_container)
-        right_layout.addWidget(self.scroll_details)
+        right_layout.addWidget(self.scroll_details, 1) # Stretch factor 1 to fill space
         
         # --- BATCH ACTIONS TOOLBAR (Floating at bottom) ---
         self.batch_toolbar = QFrame()
@@ -472,7 +495,7 @@ class AlchemyView(QWidget):
         
         right_layout.addWidget(self.batch_toolbar)
         
-        right_layout.addStretch() # Add stretch to push content to top
+        # right_layout.addStretch() # REMOVED: Caused empty block at bottom
 
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
@@ -768,24 +791,37 @@ class AlchemyView(QWidget):
 
     def on_import_requested(self):
         from PyQt6.QtWidgets import QFileDialog
-        from app.utils.excel_importer import parse_account_file
+        from app.controllers.import_controller import ImportController
         
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Importar Cuentas", "", "Excel/CSV Files (*.xlsx *.csv)"
+            self, "Importar Cuentas", "", "Excel Files (*.xlsx);;CSV Files (*.csv)"
         )
         
         if not file_path:
             return
             
         try:
-            import_data = parse_account_file(file_path)
-            success, message = self.controller.bulk_import_accounts(self.server_id, import_data)
+            # Check extension
+            if file_path.lower().endswith('.csv'):
+                 QMessageBox.warning(self, "Aviso", "La importación de CSV con el nuevo formato no está soportada aún. Use Excel (.xlsx).")
+                 return
+
+            # Instantiate controller (creates its own session or we could pass one if we wanted shared transaction)
+            importer = ImportController() 
             
-            if success:
-                QMessageBox.information(self, "Éxito", message)
-                self.load_data(preserve_selection=import_data.get("email"))
+            result = importer.import_from_excel(file_path, self.server_id)
+            
+            if result.get("success"):
+                processed = result.get("processed_accounts", 0)
+                QMessageBox.information(self, "Éxito", f"Importación completada.\nCuentas procesadas: {processed}")
+                
+                # Refresh view by reloading data
+                # Identify an email to select? Maybe the last one or first one created?
+                # For now just reload.
+                self.load_data() 
             else:
-                QMessageBox.warning(self, "Error de Importación", message)
+                QMessageBox.warning(self, "Error de Importación", f"Error: {result.get('error')}")
+                
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error crítico al importar: {str(e)}")
 

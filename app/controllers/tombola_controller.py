@@ -66,7 +66,7 @@ class TombolaController(BaseController):
                 joinedload(StoreAccount.game_accounts).joinedload(GameAccount.characters)
             ).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
             
-            stores_data = query.unique().all()
+            stores_data = query.all()
             
             # 2. Collect char IDs and fetch activities
             all_char_ids = []

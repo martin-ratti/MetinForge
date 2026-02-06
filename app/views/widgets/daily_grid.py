@@ -11,7 +11,7 @@ class DayButton(QPushButton):
         super().__init__()
         self.day_index = day_index
         self.status = status  # 0: Pendiente, 1: Hecho, -1: Fallido
-        self.setFixedSize(30, 30) # Botones MAS GRANDES
+        self.setFixedSize(22, 22) # Botones ajustados (20 era muy chico, 30 muy grande)
         self.update_style()
         
         # Conectamos el click
@@ -30,22 +30,22 @@ class DayButton(QPushButton):
         self.statusChanged.emit(self.day_index, self.status)
 
     def update_style(self):
-        font_style = "font-weight: bold; font-size: 16px;"
+        font_style = "font-weight: bold; font-size: 12px;" # Aumentado de 11px a 12px
         
         if self.status == 1:
             self.setText("✓")
             # Metin2 Success - Gold
-            self.setStyleSheet(f"background-color: #d4af37; color: #000; border: 1px solid #5d4d2b; border-radius: 4px; {font_style}") 
+            self.setStyleSheet(f"background-color: #d4af37; color: #000; border: 1px solid #5d4d2b; border-radius: 2px; {font_style}") 
             self.setToolTip(f"Día {self.day_index}: Completado")
         elif self.status == -1:
             self.setText("✕")
             # Metin2 Fail - Dark Red
-            self.setStyleSheet(f"background-color: #550000; color: #ffcccc; border: 1px solid #800000; border-radius: 4px; {font_style}")
+            self.setStyleSheet(f"background-color: #550000; color: #ffcccc; border: 1px solid #800000; border-radius: 2px; {font_style}")
             self.setToolTip(f"Día {self.day_index}: Fallido / No hecho")
         else:
             self.setText("")
             # Metin2 Pending - Dark Background with Gold Border
-            self.setStyleSheet(f"background-color: #2b2b2b; border: 1px solid #5d4d2b; border-radius: 4px; {font_style}")
+            self.setStyleSheet(f"background-color: #2b2b2b; border: 1px solid #5d4d2b; border-radius: 2px; {font_style}")
             self.setToolTip(f"Día {self.day_index}: Pendiente")
 
     def setOpacity(self, opacity):
@@ -61,7 +61,7 @@ class DailyGridWidget(QWidget):
     def __init__(self, days_data=None, total_days=31):
         super().__init__()
         # Use Custom FlowLayout
-        self.layout = FlowLayout(spacing=4) # Spacing un poco mayor
+        self.layout = FlowLayout(spacing=2) # Spacing minimo
         self.layout.setContentsMargins(0, 0, 0, 0)
         
         self.setLayout(self.layout)
@@ -108,15 +108,15 @@ class DailyGridWidget(QWidget):
 class DailyGridHeaderWidget(QWidget):
     def __init__(self, total_days=31):
         super().__init__()
-        self.layout = FlowLayout(spacing=4)
+        self.layout = FlowLayout(spacing=2)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
         
         for i in range(1, total_days + 1):
             l = QLabel(str(i))
-            l.setFixedSize(30, 30) # MATCH DayButton Size
+            l.setFixedSize(22, 22) # MATCH DayButton Size
             l.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            l.setStyleSheet("color: #a0a0a0; font-size: 12px; font-weight: bold;")
+            l.setStyleSheet("color: #a0a0a0; font-size: 11px; font-weight: bold;")
             
             self.layout.addWidget(l)
 

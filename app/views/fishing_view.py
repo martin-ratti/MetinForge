@@ -109,18 +109,24 @@ class FishingRow(QFrame):
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         # Metin2 Palette: Dark Bg #1a1a1a, Gold Border #5d4d2b
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        # Metin2 Palette: Compact
         self.setStyleSheet("""
             QFrame {
                 background-color: #1a1a1a; 
-                border: 1px solid #5d4d2b; 
-                border-radius: 4px; 
-                margin-bottom: 2px;
+                border: none;
+                border-bottom: 1px solid #333; 
+                margin: 0px;
             }
+            QCheckBox { spacing: 5px; }
+            QCheckBox::indicator { width: 14px; height: 14px; }
         """)
         
         layout = QHBoxLayout()
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(10)
+        layout = QHBoxLayout()
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(5)
         self.setLayout(layout)
 
         # 0. Checkbox
@@ -135,13 +141,13 @@ class FishingRow(QFrame):
         
         # Labels
         lbl_acc = QLabel(game_account.username)
-        lbl_acc.setFixedWidth(120)
+        lbl_acc.setFixedWidth(130) # Compact Std
         lbl_acc.setStyleSheet("border: none; color: #e0e0e0; font-weight: bold;")
         lbl_acc.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         lbl_name = QLabel(display_name)
-        lbl_name.setFixedWidth(120)
-        lbl_name.setStyleSheet("border: none; color: #d4af37; font-weight: bold;")
+        lbl_name.setFixedWidth(130) # Compact Std
+        lbl_name.setStyleSheet("border: none; color: #d4af37; font-weight: bold; font-size: 13px;")
         lbl_name.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         layout.addWidget(lbl_acc)
@@ -154,8 +160,8 @@ class FishingRow(QFrame):
         if first_char:
             self.grid.cellStatusChanged.connect(lambda m, w, s: controller.update_fishing_status(first_char.id, year, m, w, s))
         
-        layout.addWidget(self.grid)
-        layout.addStretch()
+        layout.addWidget(self.grid, 1)
+        # layout.addStretch() # Support full width
 
     def _on_checkbox_changed(self, state):
         selected = (state == Qt.CheckState.Checked.value)
@@ -182,9 +188,9 @@ class FishingRow(QFrame):
             self.setStyleSheet("""
                 QFrame {
                     background-color: #1a1a1a; 
-                    border: 1px solid #5d4d2b; 
-                    border-radius: 4px; 
-                    margin-bottom: 2px;
+                    border: none;
+                    border-bottom: 1px solid #333; 
+                    margin: 0px;
                 }
             """)
 
@@ -252,23 +258,29 @@ class FishingStoreDetailsWidget(QWidget):
         # Header Annual
         header_container = QWidget()
         h_layout = QHBoxLayout()
-        h_layout.setContentsMargins(5, 0, 5, 0)
-        h_layout.setSpacing(10)
+        h_layout = QHBoxLayout()
+        h_layout.setContentsMargins(2, 2, 2, 2)
+        h_layout.setSpacing(5)
         header_container.setLayout(h_layout)
         
+        # Checkbox Placeholder
+        lbl_chk = QLabel("")
+        lbl_chk.setFixedWidth(24) # 14px indicator + margins
+        h_layout.addWidget(lbl_chk)
+
         lbl_h_acc = QLabel("CUENTA")
-        lbl_h_acc.setFixedWidth(120)
-        lbl_h_acc.setStyleSheet("color: #a0a0a0; font-weight: bold;")
+        lbl_h_acc.setFixedWidth(130) # Compact Std
+        lbl_h_acc.setStyleSheet("color: #a0a0a0; font-weight: bold; font-size: 10px;")
         h_layout.addWidget(lbl_h_acc)
         
         lbl_h1 = QLabel("PESCADOR")
-        lbl_h1.setFixedWidth(120) 
-        lbl_h1.setStyleSheet("color: #a0a0a0; font-weight: bold;")
+        lbl_h1.setFixedWidth(130) # Compact Std
+        lbl_h1.setStyleSheet("color: #a0a0a0; font-weight: bold; font-size: 10px;")
         h_layout.addWidget(lbl_h1)
         
         grid_header = FishingHeaderWidget()
-        h_layout.addWidget(grid_header)
-        h_layout.addStretch()
+        h_layout.addWidget(grid_header, 1) # Full width
+        # h_layout.addStretch()
         layout.addWidget(header_container)
 
         # Cuentas 
@@ -391,19 +403,19 @@ class FishingView(QWidget):
         right_layout.addLayout(top_bar)
         
         # Scroll Area
+        from app.utils.styles import SCROLLBAR_STYLESHEET
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True) # Vertical resize
-        self.scroll.setWidgetResizable(True) # Vertical resize
-        self.scroll.setStyleSheet("QScrollArea { border: none; }")
+        self.scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }" + SCROLLBAR_STYLESHEET)
         
         self.content_container = QWidget()
-        # self.content_container.setStyleSheet("background-color: #102027;") # Removed to match Tombola
+        self.content_container.setStyleSheet("background-color: transparent;") # Prevent white background
         self.content_layout = QVBoxLayout()
         self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.content_container.setLayout(self.content_layout)
         
         self.scroll.setWidget(self.content_container)
-        right_layout.addWidget(self.scroll)
+        right_layout.addWidget(self.scroll, 1)
         
         # --- BATCH ACTIONS TOOLBAR (Floating at bottom) ---
         self.batch_toolbar = QFrame()
