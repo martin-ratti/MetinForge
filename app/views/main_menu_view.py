@@ -5,6 +5,7 @@ class MainMenuView(QWidget):
     # Señales para navegación
     navigate_to_servers = pyqtSignal()
     open_timer = pyqtSignal()
+    open_countdown = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -46,11 +47,22 @@ class MainMenuView(QWidget):
         btn_servers = self.create_main_button("GESTIONAR SERVIDORES")
         btn_servers.clicked.connect(self.navigate_to_servers.emit)
         
+        
+        # Tools Layout (Stopwatch + Countdown)
+        tools_layout = QHBoxLayout()
+        tools_layout.setSpacing(10)
+        
         btn_timer = self.create_main_button("⏱ CRONÓMETRO")
         btn_timer.clicked.connect(self.open_timer.emit)
         
+        btn_countdown = self.create_main_button("⏲ TEMP.")
+        btn_countdown.clicked.connect(self.open_countdown.emit)
+        
+        tools_layout.addWidget(btn_timer)
+        tools_layout.addWidget(btn_countdown)
+        
         container_layout.addWidget(btn_servers)
-        container_layout.addWidget(btn_timer)
+        container_layout.addLayout(tools_layout)
         
         layout.addWidget(container)
 

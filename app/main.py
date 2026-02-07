@@ -14,13 +14,16 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 1400, 900)
         
         self.timer_window = None  # Floating timer reference
+        self.countdown_window = None # Floating countdown reference
         
         self.show_main_menu()
+    
     
     def show_main_menu(self):
         self.menu_view = MainMenuView()
         self.menu_view.navigate_to_servers.connect(self.show_server_selection)
         self.menu_view.open_timer.connect(self.show_timer)
+        self.menu_view.open_countdown.connect(self.show_countdown)
         self.setCentralWidget(self.menu_view)
 
     def show_server_selection(self):
@@ -79,6 +82,16 @@ class MainWindow(QMainWindow):
             # Bring to front if already open
             self.timer_window.raise_()
             self.timer_window.activateWindow()
+
+    def show_countdown(self):
+        from app.views.widgets.floating_countdown import FloatingCountdown
+        if self.countdown_window is None or not self.countdown_window.isVisible():
+            self.countdown_window = FloatingCountdown()
+            self.countdown_window.show()
+            self.showMinimized()
+        else:
+            self.countdown_window.raise_()
+            self.countdown_window.activateWindow()
 
 def main():
     app = QApplication(sys.argv)
