@@ -303,9 +303,13 @@ class FishingView(QWidget):
         self.server_name = server_name
         self.controller = FishingController()
         self.current_year = datetime.date.today().year
+        self.current_year = datetime.date.today().year
         self.data_cache = []
+        self.all_data = [] # New: Store all data
+        self.rows = [] # New: Track rows
         self.selected_store_email = None
-
+        self.last_clicked_row = None
+        
         self.init_ui()
         self.load_data()
 
@@ -348,15 +352,8 @@ class FishingView(QWidget):
         left_layout.addLayout(header_left)
         
         # Store List
-        self.store_list = QListWidget()
-        self.store_list.setStyleSheet("""
-            QListWidget { background-color: #263238; border: 1px solid #37474f; color: #b0bec5; font-size: 13px; outline: none; }
-            QListWidget::item { padding: 10px; border-bottom: 1px solid #37474f; }
-            QListWidget::item:selected { background-color: #3e2723; color: #ffca28; border-left: 4px solid #ffca28; }
-            QListWidget::item:hover { background-color: #303030; }
-        """)
-        self.store_list.itemClicked.connect(self.on_store_selected)
-        left_layout.addWidget(self.store_list)
+        # Store List REMOVED
+        # left_layout.addWidget(self.store_list)
         
         # --- RIGHT PANEL: Details ---
         right_widget = QWidget()
@@ -365,8 +362,8 @@ class FishingView(QWidget):
         
         # Top Bar Right
         top_bar = QHBoxLayout()
-        lbl_server = QLabel(f"{self.server_name.upper()}")
-        lbl_server.setStyleSheet("font-size: 20px; font-weight: bold; color: #eceff1;")
+        lbl_server = QLabel(f"{self.server_name.title()}")
+        lbl_server.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37; background-color: #263238; border: 1px solid #d4af37; border-radius: 4px; padding: 4px 8px;")
         
         self.combo_year = QComboBox()
         for y in range(2025, 2031):
@@ -397,8 +394,23 @@ class FishingView(QWidget):
 
         top_bar.addWidget(lbl_server)
         top_bar.addStretch()
+        
+        # Store Filter
+        self.combo_store = QComboBox()
+        self.combo_store.setMinimumWidth(150)
+        self.combo_store.setStyleSheet("padding: 5px; background-color: #37474f; color: white; border: 1px solid #546e7a; border-radius: 4px;")
+        self.combo_store.currentIndexChanged.connect(self.on_store_filter_changed)
+        top_bar.addWidget(self.combo_store)
+        
         top_bar.addWidget(QLabel("Año:"))
         top_bar.addWidget(self.combo_year)
+        
+        btn_select_all = QPushButton("Seleccionar Todo")
+        btn_select_all.clicked.connect(self.select_all_rows)
+        btn_select_all.setFixedHeight(30)
+        btn_select_all.setStyleSheet("QPushButton { background-color: #455a64; color: white; border: 1px solid #607d8b; border-radius: 4px; font-weight: bold; padding: 0 10px; } QPushButton:hover { background-color: #546e7a; }")
+        top_bar.addWidget(btn_select_all)
+        
         top_bar.addWidget(btn_help)
         right_layout.addLayout(top_bar)
         
@@ -465,46 +477,121 @@ class FishingView(QWidget):
 
 
     def load_data(self):
-        self.data_cache = self.controller.get_fishing_data(self.server_id, self.current_year)
+        # Fetch all data
+        self.all_data = self.controller.get_fishing_data(self.server_id, self.current_year)
         
-        # Populate List
-        self.store_list.clear()
-        selected_item = None
-        
-        for store_data in self.data_cache:
-            store = store_data['store']
-            item = QListWidgetItem(store.email)
-            item.setData(Qt.ItemDataRole.UserRole, store_data)
-            self.store_list.addItem(item)
-            
-            if self.selected_store_email == store.email:
-                selected_item = item
-        
-        if selected_item:
-            self.store_list.setCurrentItem(selected_item)
-            self.on_store_selected(selected_item)
-        elif self.store_list.count() > 0:
-            self.store_list.setCurrentRow(0)
-            self.on_store_selected(self.store_list.item(0))
-        else:
-            self.clear_details()
-
-    def on_store_selected(self, item):
-        store_data = item.data(Qt.ItemDataRole.UserRole)
-        self.selected_store_email = store_data['store'].email
-        self.show_store_details(store_data)
-
-    def show_store_details(self, store_data):
         self.clear_details()
-        self.current_details_widget = FishingStoreDetailsWidget(store_data, self.controller, self.current_year)
-        self.content_layout.addWidget(self.current_details_widget)
+        self.selected_store_email = None
         
-        # Connect rows
-        for row in self.current_details_widget.rows:
-            row.selectionChanged.connect(self.update_batch_toolbar)
-            row.rowClicked.connect(self.on_row_clicked)
+        # Populate Filter
+        self.combo_store.blockSignals(True)
+        self.combo_store.clear()
+        self.combo_store.addItem("Todos", None)
+        
+        if self.all_data:
+            sorted_stores = sorted(self.all_data, key=lambda x: x['store'].email)
+            for item in sorted_stores:
+                store = item['store']
+                self.combo_store.addItem(store.email, store.id)
+        self.combo_store.blockSignals(False)
+        
+        self.filter_rows()
+
+    def on_store_filter_changed(self, index):
+        self.filter_rows()
+        
+    def filter_rows(self):
+        self.clear_details()
+        self.rows = []
+        
+        target_store_id = self.combo_store.currentData()
+        
+        filtered_data = []
+        if target_store_id is None:
+            filtered_data = self.all_data
+        else:
+            filtered_data = [s for s in self.all_data if s['store'].id == target_store_id]
             
+        if not filtered_data:
+            return
+
+        # Container for the unified list
+        content_widget = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(10) # Spacing between store blocks
+        content_widget.setLayout(content_layout)
+        
+        for store_data in filtered_data:
+            # Create a "Block" for each store
+            store_block = QWidget()
+            block_layout = QVBoxLayout()
+            block_layout.setContentsMargins(0, 0, 0, 0)
+            block_layout.setSpacing(0)
+            store_block.setLayout(block_layout)
+            
+            # --- Store Header ---
+            header_widget = self.create_store_header(store_data['store'].email)
+            block_layout.addWidget(header_widget)
+            
+            # --- Accounts ---
+            accounts = store_data.get('accounts', [])
+            for game_account in accounts:
+                 row = FishingRow(game_account, self.controller, self.current_year)
+                 row.selectionChanged.connect(self.update_batch_toolbar)
+                 row.rowClicked.connect(self.on_row_clicked)
+                 self.rows.append(row)
+                 block_layout.addWidget(row)
+            
+            content_layout.addWidget(store_block)
+            
+        self.scroll.setWidget(content_widget)
         self.update_batch_toolbar()
+        self.update_batch_toolbar()
+    
+    def create_store_header(self, email):
+        header_container = QWidget()
+        header_container.setStyleSheet("background-color: #102027; border-bottom: 2px solid #546e7a; margin-top: 10px;")
+        
+        v_layout = QVBoxLayout()
+        v_layout.setContentsMargins(0, 0, 0, 0)
+        v_layout.setSpacing(5)
+        header_container.setLayout(v_layout)
+        
+        # Title
+        title = QLabel(f"📧 {email}")
+        title.setStyleSheet("font-size: 14px; color: #d4af37; font-weight: bold; padding: 5px;")
+        v_layout.addWidget(title)
+        
+        # Column Headers
+        h_layout = QHBoxLayout()
+        h_layout.setContentsMargins(2, 2, 2, 2)
+        h_layout.setSpacing(5)
+        
+        lbl_chk = QLabel("")
+        lbl_chk.setFixedWidth(24)
+        h_layout.addWidget(lbl_chk)
+
+        lbl_h_acc = QLabel("CUENTA")
+        lbl_h_acc.setFixedWidth(130) # Compact Std
+        lbl_h_acc.setStyleSheet("color: #a0a0a0; font-weight: bold; font-size: 10px;")
+        h_layout.addWidget(lbl_h_acc)
+        
+        lbl_h1 = QLabel("PESCADOR")
+        lbl_h1.setFixedWidth(130) # Compact Std
+        lbl_h1.setStyleSheet("color: #a0a0a0; font-weight: bold; font-size: 10px;")
+        h_layout.addWidget(lbl_h1)
+        
+        grid_header = FishingHeaderWidget()
+        h_layout.addWidget(grid_header, 1) 
+        
+        v_layout.addLayout(h_layout)
+        return header_container
+
+    # on_store_selected REMOVED
+
+    # show_store_details REMOVED
 
     def clear_details(self):
         while self.content_layout.count():
@@ -527,42 +614,34 @@ class FishingView(QWidget):
         })
 
     def select_all_rows(self):
-        if hasattr(self, 'current_details_widget') and self.current_details_widget:
-            for row in self.current_details_widget.rows:
-                row.set_selected(True)
+        for row in self.rows:
+            row.set_selected(True)
 
     def deselect_all_rows(self):
-        if hasattr(self, 'current_details_widget') and self.current_details_widget:
-            for row in self.current_details_widget.rows:
-                row.set_selected(False)
+        for row in self.rows:
+            row.set_selected(False)
 
     def on_row_clicked(self, row, modifiers):
-        if not self.current_details_widget: return
-        rows = self.current_details_widget.rows
-        if row not in rows: return
+        if row not in self.rows: return
         
-        idx = rows.index(row)
+        idx = self.rows.index(row)
         
-        if modifiers & Qt.KeyboardModifier.ShiftModifier and hasattr(self, 'last_clicked_row') and self.last_clicked_row in rows:
-            start = rows.index(self.last_clicked_row)
+        if modifiers & Qt.KeyboardModifier.ShiftModifier and hasattr(self, 'last_clicked_row') and self.last_clicked_row in self.rows:
+            start = self.rows.index(self.last_clicked_row)
             end = idx
             step = 1 if start < end else -1
             for i in range(start, end + step, step):
-                rows[i].set_selected(True)
+                self.rows[i].set_selected(True)
         elif modifiers & Qt.KeyboardModifier.ControlModifier:
             row.set_selected(not row.is_selected())
         else:
-            # Optional: Single click logic? Keeping it simple
+            # Check if we should implement single click select or just toggle
             pass
             
         self.last_clicked_row = row
 
     def update_batch_toolbar(self):
-        if not hasattr(self, 'current_details_widget') or not self.current_details_widget:
-            self.batch_toolbar.setVisible(False)
-            return
-            
-        selected = [r for r in self.current_details_widget.rows if r.is_selected()]
+        selected = [r for r in self.rows if r.is_selected()]
         count = len(selected)
         self.lbl_batch_count.setText(f"{count} seleccionadas")
         self.batch_toolbar.setVisible(count > 0)
@@ -574,10 +653,8 @@ class FishingView(QWidget):
 
     def apply_batch_status(self, status):
         from PyQt6.QtWidgets import QMessageBox
-        if not hasattr(self, 'current_details_widget') or not self.current_details_widget:
-            return
-
-        selected_rows = [r for r in self.current_details_widget.rows if r.is_selected()]
+        
+        selected_rows = [r for r in self.rows if r.is_selected()]
         if not selected_rows: return
         
         count = 0

@@ -15,6 +15,54 @@ class TombolaController(BaseController):
         finally:
             session.close()
     
+    def get_tombola_item_counters(self, event_id):
+        """Obtiene todos los contadores de items para un evento tombola"""
+        if not event_id:
+            return {}
+            
+        session = self.get_session() # Changed from self.Session() to self.get_session() for consistency
+        try:
+            from app.models.models import TombolaItemCounter
+            counters = session.query(TombolaItemCounter).filter_by(event_id=event_id).all()
+            return {counter.item_name: counter.count for counter in counters}
+        except Exception as e:
+            print(f"❌ Error al obtener contadores tombola: {e}")
+            return {}
+        finally:
+            session.close()
+
+    def update_tombola_item_count(self, event_id, item_name, count):
+        """Actualiza el contador de un item tombola"""
+        if not event_id or not item_name:
+            return False
+            
+        session = self.get_session() # Changed from self.Session() to self.get_session() for consistency
+        try:
+            from app.models.models import TombolaItemCounter
+            counter = session.query(TombolaItemCounter).filter_by(
+                event_id=event_id,
+                item_name=item_name
+            ).first()
+            
+            if counter:
+                counter.count = count
+            else:
+                new_counter = TombolaItemCounter(
+                    event_id=event_id,
+                    item_name=item_name,
+                    count=count
+                )
+                session.add(new_counter)
+            
+            session.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Error al actualizar item tombola: {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+    
     def get_tombola_events(self, server_id):
         """Get all tombola events for a server"""
         session = self.get_session()

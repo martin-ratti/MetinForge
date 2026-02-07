@@ -89,12 +89,17 @@ class ImportController:
                             continue
                             
                         # Find or Create GameAccount
-                        game_acc = self.session.query(GameAccount).filter_by(
-                            username=game_acc_name, 
-                            server_id=server_id
-                        ).first()
+                        # Check global uniqueness of username
+                        game_acc = self.session.query(GameAccount).filter_by(username=game_acc_name).first()
                         
-                        if not game_acc:
+                        if game_acc:
+                            # Account exists: Update links if necessary
+                            if game_acc.store_account_id != current_store_account.id:
+                                game_acc.store_account_id = current_store_account.id
+                            if game_acc.server_id != server_id:
+                                game_acc.server_id = server_id
+                        else:
+                            # Create new
                             game_acc = GameAccount(
                                 username=game_acc_name,
                                 server_id=server_id,

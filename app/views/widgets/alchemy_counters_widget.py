@@ -3,6 +3,10 @@ from PyQt6.QtWidgets import (QFrame, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, pyqtSignal
 
 
+class NoScrollSpinBox(QSpinBox):
+    def wheelEvent(self, event):
+        event.ignore()
+
 class AlchemyCountersWidget(QFrame):
     """Widget para mostrar y editar contadores de alquimias por tipo y total de cords"""
     
@@ -150,7 +154,7 @@ class AlchemyCountersWidget(QFrame):
                 }
             """)
             
-            spinbox = QSpinBox()
+            spinbox = NoScrollSpinBox()
             spinbox.setRange(0, 9999)
             spinbox.setFixedWidth(60)
             spinbox.setAlignment(Qt.AlignmentFlag.AlignCenter)

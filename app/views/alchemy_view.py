@@ -296,8 +296,9 @@ class AlchemyView(QWidget):
         self.selected_email = None
         self.current_event = None
         self.events_cache = []
-        self.selected_rows = [] # Track AlchemyRow instances or custom selection
-        self.current_details_widget = None # To hold the current StoreDetailsWidget
+        self.events_cache = []
+        self.all_data = [] # New: Store all data for filtering
+        self.rows = [] # New: Track all rows directly
         self.last_clicked_row = None
         
         self.init_ui()
@@ -382,15 +383,9 @@ class AlchemyView(QWidget):
         email_toolbar.addStretch()
         left_layout.addLayout(email_toolbar)
         
-        self.store_list = QListWidget()
-        self.store_list.setStyleSheet("""
-            QListWidget { background-color: #263238; border: 1px solid #37474f; color: #b0bec5; font-size: 13px; outline: none; }
-            QListWidget::item { padding: 10px; border-bottom: 1px solid #37474f; }
-            QListWidget::item:selected { background-color: #3e2723; color: #ffca28; border-left: 4px solid #ffca28; }
-            QListWidget::item:hover { background-color: #303030; }
-        """)
-        self.store_list.itemClicked.connect(self.on_store_selected)
-        left_layout.addWidget(self.store_list, 1)  # Stretch factor 1
+        # Store List REMOVED
+        # self.store_list = QListWidget() 
+        # ... removed ...
         
         # --- WIDGET DE ALQUIMIAS ---
         from app.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
@@ -408,11 +403,18 @@ class AlchemyView(QWidget):
         header_right = QHBoxLayout()
         header_right.setSpacing(10)
         
-        lbl_server = QLabel(f"{self.server_name.upper()}")
-        lbl_server.setStyleSheet("font-size: 20px; font-weight: bold; color: #eceff1;")
+        lbl_server = QLabel(f"{self.server_name.title()}")
+        lbl_server.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37; background-color: #263238; border: 1px solid #d4af37; border-radius: 4px; padding: 4px 8px;")
         header_right.addWidget(lbl_server)
         
         header_right.addStretch()
+        
+        # Store Filter
+        self.combo_store = QComboBox()
+        self.combo_store.setMinimumWidth(150)
+        self.combo_store.setStyleSheet("padding: 5px; background-color: #263238; color: white; border: 1px solid #546e7a; border-radius: 4px;")
+        self.combo_store.currentIndexChanged.connect(self.on_store_filter_changed)
+        header_right.addWidget(self.combo_store)
         
         # Eventos
         self.combo_events = QComboBox()
@@ -433,7 +435,13 @@ class AlchemyView(QWidget):
         self.btn_add_account.setVisible(False)
         self.btn_add_account.clicked.connect(self.prompt_add_game_account)
         self.btn_add_account.setStyleSheet("QPushButton { background-color: #2e7d32; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 14px; padding: 0 10px; } QPushButton:hover { background-color: #388e3c; }")
+        
+        self.btn_select_all = QPushButton("Seleccionar Todo")
+        self.btn_select_all.clicked.connect(self.select_all_rows)
+        self.btn_select_all.setFixedHeight(30)
+        self.btn_select_all.setStyleSheet("QPushButton { background-color: #455a64; color: white; border: 1px solid #607d8b; border-radius: 4px; font-weight: bold; padding: 0 10px; } QPushButton:hover { background-color: #546e7a; }")
 
+        header_right.addWidget(self.btn_select_all)
         header_right.addWidget(self.btn_add_account)
         right_layout.addLayout(header_right)
         
@@ -515,22 +523,17 @@ class AlchemyView(QWidget):
 
     def select_all_rows(self):
         """Select all account rows in the current detail view."""
-        if hasattr(self, 'current_details_widget') and self.current_details_widget:
-            for row in self.current_details_widget.rows:
-                row.set_selected(True)
+        for row in self.rows:
+            row.set_selected(True)
 
     def deselect_all_rows(self):
         """Deselect all account rows."""
-        if hasattr(self, 'current_details_widget') and self.current_details_widget:
-            for row in self.current_details_widget.rows:
-                row.set_selected(False)
+        for row in self.rows:
+            row.set_selected(False)
 
     def apply_batch_status(self, status):
         """Apply a status to all selected rows based on their next sequential day."""
-        if not hasattr(self, 'current_details_widget') or not self.current_details_widget:
-            return
-            
-        selected_rows = [row for row in self.current_details_widget.rows if row.is_selected()]
+        selected_rows = [row for row in self.rows if row.is_selected()]
         if not selected_rows:
             return
             
@@ -541,32 +544,11 @@ class AlchemyView(QWidget):
         for row in selected_rows:
             char = row.game_account.characters[0] if row.game_account.characters else None
             if char:
-                # Find the next pending day for THIS character
-                # If status is 0 (Reset), we might want to reset the LAST done day?
-                # But for now let's assume batch actions move forward or reset current pending?
-                # User Requirement: "modify the day following the last one marked"
-                
-                # Logic:
-                # If marking Done/Fail (1/-1): Update the next pending day.
-                # If marking Reset (0): Update the LAST completed day -> 0?
-                # The user said "resetear", usually means setting back to 0. 
-                # If we reset, we should probably find the highest day that is != 0 and set it to 0.
-                
                 day_to_update = 1
                 if status == 0:
-                    # Logic for RESET: Find last non-zero day
-                    # This is complex without querying full history here.
-                    # For simplicity/safety in batch, let's just target the calculated pending day - 1?
-                    # Or maybe just don't support smart reset in batch yet, or implement 'get_last_completed_day'
-                    
-                    # Alternative: Just use get_next_pending_day, and if it returns > 1, target day - 1
                     next_day = self.controller.get_next_pending_day(char.id, self.current_event.id)
                     day_to_update = max(1, next_day - 1)
-                    
-                    # Verify if day_to_update actually has a status to reset?
-                    # Sent 0 to day_to_update
                 else:
-                    # Logic for Forward Progress
                     day_to_update = self.controller.get_next_pending_day(char.id, self.current_event.id)
 
                 self.controller.update_daily_status(
@@ -575,25 +557,24 @@ class AlchemyView(QWidget):
                 count += 1
         
         # Refresh view
-        self.load_data(preserve_selection=self.selected_email) 
+        self.load_data() 
         QMessageBox.information(self, "Acción Batch", f"Se actualizaron {count} cuentas.")
 
     def on_row_clicked(self, row, modifiers):
-        if not self.current_details_widget:
+        if row not in self.rows:
             return
             
-        rows = self.current_details_widget.rows
-        idx = rows.index(row)
+        idx = self.rows.index(row)
         
-        if modifiers & Qt.KeyboardModifier.ShiftModifier and self.last_clicked_row in rows:
+        if modifiers & Qt.KeyboardModifier.ShiftModifier and self.last_clicked_row in self.rows:
             # Range selection
-            start_idx = rows.index(self.last_clicked_row)
+            start_idx = self.rows.index(self.last_clicked_row)
             end_idx = idx
             
             # Select everything in between
             step = 1 if start_idx < end_idx else -1
             for i in range(start_idx, end_idx + step, step):
-                rows[i].set_selected(True)
+                self.rows[i].set_selected(True)
         elif modifiers & Qt.KeyboardModifier.ControlModifier:
             # Toggle individual
             row.set_selected(not row.is_selected())
@@ -606,11 +587,7 @@ class AlchemyView(QWidget):
         self.update_batch_toolbar()
 
     def update_batch_toolbar(self):
-        if not self.current_details_widget:
-            self.batch_toolbar.setVisible(False)
-            return
-            
-        selected_count = sum(1 for row in self.current_details_widget.rows if row.is_selected())
+        selected_count = sum(1 for row in self.rows if row.is_selected())
         self.lbl_batch_count.setText(f"{selected_count} seleccionadas")
         self.batch_toolbar.setVisible(selected_count > 0)
 
@@ -668,71 +645,157 @@ class AlchemyView(QWidget):
         if hasattr(self, 'alchemy_counters_widget'):
             eid = self.current_event.id if self.current_event else None
             self.alchemy_counters_widget.set_event(eid)
-        self.load_data(preserve_selection=self.selected_email)
+        self.load_data()
+
+    def on_store_filter_changed(self, index):
+        self.filter_rows()
 
     # rebuild_header Removed
 
-    def load_data(self, preserve_selection=None):
+    def load_data(self):
         if not self.current_event:
-            self.data = []
-            self.store_list.clear() 
+            self.all_data = []
             self.clear_details()
             return
 
-        self.data = self.controller.get_alchemy_dashboard_data(self.server_id, event_id=self.current_event.id)
+        # Fetch all data
+        self.all_data = self.controller.get_alchemy_dashboard_data(self.server_id, event_id=self.current_event.id)
         
-        self.store_list.clear() 
         self.clear_details()
         self.btn_add_account.setVisible(False)
         self.selected_email = None
         
-        for entry in self.data:
-             item = QListWidgetItem(entry['store'].email)
-             item.setData(Qt.ItemDataRole.UserRole, entry) # Store the full entry object
-             self.store_list.addItem(item)
+        # Populate Filter
+        self.combo_store.blockSignals(True)
+        self.combo_store.clear()
+        self.combo_store.addItem("Todos", None)
         
-        if preserve_selection:
-            # Find item by email (which is the text)
-            items = self.store_list.findItems(preserve_selection, Qt.MatchFlag.MatchExactly)
-            if items:
-                self.store_list.setCurrentItem(items[0])
-                self.on_store_selected(items[0])
-        elif self.store_list.count() > 0:
-            # Auto-select first if nothing preserved
-            self.store_list.setCurrentRow(0)
-            self.on_store_selected(self.store_list.item(0))
+        if self.all_data:
+            sorted_stores = sorted(self.all_data, key=lambda x: x['store'].email)
+            for item in sorted_stores:
+                store = item['store']
+                self.combo_store.addItem(store.email, store.id)
+        self.combo_store.blockSignals(False)
+        
+        self.filter_rows()
 
-    def on_store_selected(self, item):
-        store_data = item.data(Qt.ItemDataRole.UserRole)
-        self.selected_email = store_data['store'].email
-        self.btn_add_account.setVisible(True)
-        
+    def filter_rows(self):
         self.clear_details()
+        self.rows = []
         
-        # Details Widget
+        target_store_id = self.combo_store.currentData()
+        
+        filtered_data = []
+        if target_store_id is None:
+            filtered_data = self.all_data
+        else:
+            filtered_data = [s for s in self.all_data if s['store'].id == target_store_id]
+            
+        if not filtered_data:
+            return
+
+        # Container for the unified list
+        content_widget = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(10) # Spacing between store blocks
+        content_widget.setLayout(content_layout)
+        
         eid = self.current_event.id if self.current_event else None
         total_days = self.current_event.total_days if self.current_event else 30
-        
-        # Obtener resumen de cords para este evento
         cords_summary = self.controller.get_event_cords_summary(eid) if eid else {}
-        
-        # Calcular el día actual (basado en cuántos días han pasado en el evento)
         current_day = self._calculate_current_day()
-        
-        self.current_details_widget = StoreDetailsWidget(
-            store_data, self.controller, self, eid, total_days,
-            current_day=current_day, cords_summary=cords_summary
-        )
-        # Connect selection signals for toolbar update
-        for row in self.current_details_widget.rows:
-            row.selectionChanged.connect(self.update_batch_toolbar)
+
+        for store_data in filtered_data:
+            # Create a "Block" for each store
+            store_block = QWidget()
+            block_layout = QVBoxLayout()
+            block_layout.setContentsMargins(0, 0, 0, 0)
+            block_layout.setSpacing(0)
+            store_block.setLayout(block_layout)
             
-        self.scroll_details.setWidget(self.current_details_widget)
+            # --- Store Header (The "Yellow Row" separator) ---
+            # Reuse logic from StoreDetailsWidget but simplified since we are unifying
+            header_widget = self.create_store_header(store_data['store'].email, total_days)
+            block_layout.addWidget(header_widget)
+            
+            # --- Accounts ---
+            accounts = store_data.get('accounts', [])
+            for game_account in accounts:
+                row_widget = AlchemyRow(
+                    game_account, self.controller, eid, total_days, 
+                    current_day=current_day, cords_summary=cords_summary
+                )
+                row_widget.editRequested.connect(self.on_edit_account_requested)
+                row_widget.rowClicked.connect(self.on_row_clicked)
+                row_widget.cordsChanged.connect(self.on_cords_changed)
+                row_widget.selectionChanged.connect(self.update_batch_toolbar)
+                
+                self.rows.append(row_widget)
+                block_layout.addWidget(row_widget)
+            
+            content_layout.addWidget(store_block)
+
+        self.scroll_details.setWidget(content_widget)
         self.update_batch_toolbar()
         
-        # Actualizar widget de alquimias si existe
-        if hasattr(self, 'alchemy_counters_widget'):
-            self.alchemy_counters_widget.set_event(eid)
+    def create_store_header(self, email, total_days):
+        # Header Container
+        header_container = QWidget()
+        header_container.setStyleSheet("background-color: #102027; border-bottom: 2px solid #546e7a; margin-top: 10px;")
+        
+        # Main vertical layout to hold Title + GridHeader
+        main_v = QVBoxLayout()
+        main_v.setContentsMargins(0, 0, 0, 0)
+        main_v.setSpacing(5)
+        header_container.setLayout(main_v)
+        
+        # 1. Email Title (The "Visual Separation")
+        title_lbl = QLabel(f"📧 {email}")
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37; padding: 5px;")
+        main_v.addWidget(title_lbl)
+        
+        # 2. Columns Header
+        h_layout = QHBoxLayout()
+        h_layout.setContentsMargins(2, 2, 2, 2)
+        h_layout.setSpacing(5)
+        
+        # Checkbox Placeholder
+        lbl_chk = QLabel("")
+        lbl_chk.setFixedWidth(24)
+        h_layout.addWidget(lbl_chk)
+        
+        lbl_h1 = QLabel("CUENTA")
+        lbl_h1.setFixedWidth(130)
+        lbl_h1.setStyleSheet("color: #eceff1; font-size: 11px; font-weight: bold;")
+        
+        lbl_h2 = QLabel("SLOTS")
+        lbl_h2.setFixedWidth(40)
+        lbl_h2.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_h2.setStyleSheet("color: #eceff1; font-size: 11px; font-weight: bold;")
+        
+        lbl_h3 = QLabel("MEZCLADOR")
+        lbl_h3.setFixedWidth(130)
+        lbl_h3.setStyleSheet("color: #eceff1; font-size: 11px; font-weight: bold;")
+        
+        h_layout.addWidget(lbl_h1)
+        h_layout.addWidget(lbl_h2)
+        h_layout.addWidget(lbl_h3)
+        
+        from app.views.widgets.daily_grid import DailyGridHeaderWidget
+        header_grid = DailyGridHeaderWidget(total_days=total_days)
+        h_layout.addWidget(header_grid, 1)
+        
+        lbl_h_cords = QLabel("CORDS")
+        lbl_h_cords.setFixedWidth(60)
+        lbl_h_cords.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_h_cords.setStyleSheet("color: #00ff00; font-size: 10px; font-weight: bold;")
+        h_layout.addWidget(lbl_h_cords)
+        
+        main_v.addLayout(h_layout)
+        
+        return header_container
 
     def clear_details(self):
         if hasattr(self, 'scroll_details') and self.scroll_details.widget():
@@ -753,7 +816,7 @@ class AlchemyView(QWidget):
             email = email.strip()
             if self.controller.create_store_email(email):
                 QMessageBox.information(self, "Éxito", f"Correo '{email}' agregado.")
-                self.load_data(preserve_selection=email)
+                self.load_data()
             else:
                  QMessageBox.warning(self, "Error", "No se pudo crear el correo.")
 
@@ -767,7 +830,7 @@ class AlchemyView(QWidget):
             _, username, pj_name, slots = dialog.get_data()
             if self.controller.create_game_account(self.server_id, username, slots, self.selected_email, pj_name):
                  QMessageBox.information(self, "Éxito", "Cuenta creada.")
-                 self.load_data(preserve_selection=self.selected_email)
+                 self.load_data()
             else:
                  QMessageBox.warning(self, "Error", "Error al crear cuenta.")
 
@@ -785,7 +848,7 @@ class AlchemyView(QWidget):
             new_email, new_name, new_pj_name, new_slots = dialog.get_data()
             if self.controller.update_game_account(game_account.id, new_name, new_slots, new_email):
                  QMessageBox.information(self, "Éxito", "Cuenta actualizada.")
-                 self.load_data(preserve_selection=new_email)
+                 self.load_data()
             else:
                  QMessageBox.warning(self, "Error", "No se pudo actualizar.")
 

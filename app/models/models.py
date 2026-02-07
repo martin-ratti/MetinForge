@@ -105,6 +105,7 @@ class TombolaEvent(Base):
 
     server = relationship("Server", back_populates="tombola_events")
     tombola_activities = relationship("TombolaActivity", back_populates="event")
+    item_counters = relationship("TombolaItemCounter", back_populates="event")
 
 class TombolaActivity(Base):
     __tablename__ = 'tombola_activities'
@@ -118,6 +119,17 @@ class TombolaActivity(Base):
     
     character = relationship("Character", back_populates="tombola_activities")
     event = relationship("TombolaEvent", back_populates="tombola_activities")
+
+class TombolaItemCounter(Base):
+    """Contadores de items para tombola por evento"""
+    __tablename__ = 'tombola_item_counters'
+    
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey('tombola_events.id'))
+    item_name = Column(String(50), nullable=False)
+    count = Column(Integer, default=0)
+    
+    event = relationship("TombolaEvent", back_populates="item_counters")
 
 class TimerRecord(Base):
     __tablename__ = 'timer_records'
