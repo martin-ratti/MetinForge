@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.config import Config
+from app.utils.logger import logger
 
 class BaseService:
     """
@@ -49,7 +50,7 @@ class BaseService:
                 current_day += 1
                 
         except Exception as e:
-            print(f"Error calculating next day: {e}")
+            logger.error(f"Error calculating next day: {e}")
             return 1
         finally:
             session.close()

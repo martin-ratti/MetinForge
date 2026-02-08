@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QPushButton, QSizePolicy
 from PyQt6.QtCore import Qt, pyqtSignal, QRectF
 from PyQt6.QtGui import QPainter, QPixmap, QColor, QPen, QBrush
 import os
+from app.utils.logger import logger
 
 class FeatureCardButton(QPushButton):
     """Custom button with background image and hover effect"""
@@ -14,10 +15,10 @@ class FeatureCardButton(QPushButton):
         # Load image
         if os.path.exists(image_path):
             self.bg_image = QPixmap(image_path)
-            print(f"Loaded image: {image_path}")
+            logger.debug(f"Loaded image: {image_path}")
         else:
             self.bg_image = None
-            print(f"Image not found: {image_path}")
+            logger.warning(f"Image not found: {image_path}")
         
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Make cards expand to fill available space

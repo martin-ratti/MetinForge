@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from app.utils.shortcuts import register_shortcuts
 from app.application.services.tombola_service import TombolaService
 from app.presentation.views.widgets.daily_grid import DailyGridWidget, DailyGridHeaderWidget
+from app.utils.logger import logger
 
 class TombolaRow(QFrame):
     """Row for each game account - WITHOUT slots column"""
@@ -356,7 +357,7 @@ class TombolaView(QWidget):
         self.update_batch_toolbar()
     
     def load_events(self):
-        print("DEBUG: Executing load_events")
+        logger.debug("Executing load_events")
         self.combo_event.blockSignals(True)
         self.combo_event.clear()
         
