@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QGridLayout, QFrame, QInputDialog, QMessageBox, QHBoxLayout
 from PyQt6.QtCore import Qt, pyqtSignal
-from app.controllers.alchemy_controller import AlchemyController
+from app.application.services.alchemy_service import AlchemyService
 
 class ServerCard(QFrame):
     clicked = pyqtSignal()
@@ -120,7 +120,7 @@ class ServerSelectionView(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.controller = AlchemyController()
+        self.controller = AlchemyService()
         self.init_ui()
 
     def init_ui(self):

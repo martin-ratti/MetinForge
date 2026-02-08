@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
 from PyQt6.QtCore import Qt, pyqtSignal
-from app.views.widgets.feature_card_button import FeatureCardButton
+from app.presentation.views.widgets.feature_card_button import FeatureCardButton
 import os
 
 class FeatureSelectionView(QWidget):
@@ -22,8 +22,9 @@ class FeatureSelectionView(QWidget):
         cards_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Get assets path
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        assets_dir = os.path.join(base_dir, "app", "assets", "images")
+        # app/presentation/views/feature_selection_view.py -> ../../../.. -> root
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        assets_dir = os.path.join(base_dir, "app", "presentation", "assets", "images")
         
         # Boton Diarias
         if self.flags.get('has_dailies', True):

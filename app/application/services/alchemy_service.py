@@ -1,20 +1,20 @@
 from sqlalchemy.orm import joinedload
 from sqlalchemy import extract, func
-from app.controllers.base_controller import BaseController
+from app.application.services.base_service import BaseService
 # IMPORTANTE: Importamos todos los modelos necesarios para las relaciones
-from app.models.models import StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType, DailyCorRecord, AlchemyCounter
+from app.domain.models import StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType, DailyCorRecord, AlchemyCounter
 from collections import defaultdict
 import datetime
 from app.utils.logger import logger
 
-class AlchemyController(BaseController):
+class AlchemyService(BaseService):
     # __init__ and get_session inherited from BaseController
 
 
 
     def create_server(self, name, flags=None):
         session = self.Session()
-        from app.models.models import Server
+        from app.domain.models import Server
         try:
             if not name or not name.strip():
                 logger.error("❌ Error: Server name cannot be empty.")
@@ -45,7 +45,7 @@ class AlchemyController(BaseController):
 
     def get_server_flags(self, server_id):
         session = self.Session()
-        from app.models.models import Server
+        from app.domain.models import Server
         try:
             server = session.query(Server).get(server_id)
             if server:
@@ -60,7 +60,7 @@ class AlchemyController(BaseController):
 
     def update_server_feature(self, server_id, feature_key, state):
         session = self.Session()
-        from app.models.models import Server
+        from app.domain.models import Server
         try:
             server = session.query(Server).get(server_id)
             if not server: return False
@@ -81,7 +81,7 @@ class AlchemyController(BaseController):
 
     def create_store_email(self, email):
         session = self.Session()
-        from app.models.models import StoreAccount
+        from app.domain.models import StoreAccount
         try:
             if not email:
                 logger.error("❌ Create Email: Empty email")
@@ -205,7 +205,7 @@ class AlchemyController(BaseController):
     # --- EVENTOS ALQUIMIA ---
     def create_alchemy_event(self, server_id, name, days):
         session = self.Session()
-        from app.models.models import AlchemyEvent
+        from app.domain.models import AlchemyEvent
         try:
             new_event = AlchemyEvent(
                 server_id=server_id,
@@ -226,7 +226,7 @@ class AlchemyController(BaseController):
 
     def get_alchemy_events(self, server_id):
         session = self.Session()
-        from app.models.models import AlchemyEvent
+        from app.domain.models import AlchemyEvent
         try:
             return session.query(AlchemyEvent).filter_by(server_id=server_id).order_by(AlchemyEvent.id.desc()).all()
         finally:

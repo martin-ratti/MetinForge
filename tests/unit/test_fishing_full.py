@@ -1,10 +1,10 @@
 import pytest
-from app.controllers.fishing_controller import FishingController
-from app.models.models import FishingActivity, StoreAccount, GameAccount, Character, CharacterType, Server
+from app.application.services.fishing_service import FishingService
+from app.domain.models import FishingActivity, StoreAccount, GameAccount, Character, CharacterType, Server
 
 @pytest.fixture
 def fishing_ctrl(test_db):
-    ctrl = FishingController()
+    ctrl = FishingService()
     class SessionProxy:
         def __init__(self, session): self._session = session
         def __getattr__(self, name):
@@ -103,7 +103,7 @@ def test_get_next_pending_week_logic(fishing_ctrl, test_db, seed_data):
 
 def test_fishing_update_error_handling(test_db):
     """Test error handling during update."""
-    controller = FishingController()
+    controller = FishingService()
     # Force error by passing invalid session or constraint violation? 
     # Easiest is mocking commit to raise exception
     

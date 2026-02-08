@@ -1,7 +1,7 @@
 import pytest
-from app.controllers.alchemy_controller import AlchemyController
+from app.application.services.alchemy_service import AlchemyService
 
-class MockAlchemyController(AlchemyController):
+class MockAlchemyController(AlchemyService):
     def __init__(self, session):
         self.session = session
     def get_session(self):
@@ -41,7 +41,7 @@ def test_full_alchemy_workflow(test_db, seed_data):
     assert matrix[2] == 1 # Day 2 should remain untouched
 
 def get_character_matrix_helper(controller, char_id, event_id, total_days):
-    from app.models.models import DailyCorActivity
+    from app.domain.models import DailyCorActivity
     session = controller.get_session()
     activities = session.query(DailyCorActivity).filter_by(
         character_id=char_id,

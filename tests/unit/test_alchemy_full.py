@@ -1,11 +1,11 @@
 import pytest
-from app.controllers.alchemy_controller import AlchemyController
-from app.controllers.base_controller import BaseController
-from app.models.models import Server, StoreAccount, GameAccount, Character, DailyCorActivity, AlchemyCounter, AlchemyEvent
+from app.application.services.alchemy_service import AlchemyService
+from app.application.services.base_service import BaseService
+from app.domain.models import Server, StoreAccount, GameAccount, Character, DailyCorActivity, AlchemyCounter, AlchemyEvent
 
 @pytest.fixture
 def alchemy_ctrl(test_db):
-    ctrl = AlchemyController()
+    ctrl = AlchemyService()
     # Mock session factory to return test_db, but prevent close() from ruining the fixture
     # We create a proxy that delegates everything but close
     class SessionProxy:

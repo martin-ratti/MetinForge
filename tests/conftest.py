@@ -7,8 +7,8 @@ import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models.base import Base
-from app.models.models import Server, StoreAccount, GameAccount, Character, CharacterType
+from app.domain.base import Base
+from app.domain.models import Server, StoreAccount, GameAccount, Character, CharacterType
 
 # Use in-memory SQLite for tests
 TEST_DATABASE_URL = "sqlite:///:memory:"

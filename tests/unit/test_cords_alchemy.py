@@ -2,7 +2,7 @@
 Tests unitarios para el sistema de Cords y Alquimias
 """
 import pytest
-from app.models.models import DailyCorRecord, AlchemyCounter
+from app.domain.models import DailyCorRecord, AlchemyCounter
 
 
 class TestDailyCorRecordModel:
@@ -56,8 +56,8 @@ class TestAlchemyControllerImports:
     
     def test_controller_imports(self):
         """Verifica que el controlador se puede importar"""
-        from app.controllers.alchemy_controller import AlchemyController
-        controller = AlchemyController()
+        from app.application.services.alchemy_service import AlchemyService
+        controller = AlchemyService()
         
         # Verificar que los nuevos métodos existen
         assert hasattr(controller, 'update_daily_cords')
@@ -74,11 +74,10 @@ class TestAlchemyViewImports:
     
     def test_view_imports(self):
         """Verifica que las vistas se pueden importar"""
-        from app.views.alchemy_view import AlchemyView, AlchemyRow, StoreDetailsWidget
-        from app.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
+        from app.presentation.views.alchemy_view import AlchemyView, AlchemyRow
+        from app.presentation.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
         
         # Solo verificamos que se pueden importar
         assert AlchemyView is not None
         assert AlchemyRow is not None
-        assert StoreDetailsWidget is not None
         assert AlchemyCountersWidget is not None

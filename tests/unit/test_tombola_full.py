@@ -1,10 +1,10 @@
 import pytest
-from app.controllers.tombola_controller import TombolaController
-from app.models.models import TombolaActivity, TombolaEvent, TombolaItemCounter
+from app.application.services.tombola_service import TombolaService
+from app.domain.models import TombolaActivity, TombolaEvent, TombolaItemCounter
 
 @pytest.fixture
 def tombola_ctrl(test_db):
-    ctrl = TombolaController()
+    ctrl = TombolaService()
     class SessionProxy:
         def __init__(self, session): self._session = session
         def __getattr__(self, name):

@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QApplication
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from app.main import MainWindow
+from app.utils.logger import logger
 
 def profile_startup():
     """Profile the application startup process."""
@@ -29,7 +30,7 @@ def profile_startup():
     stats.sort_stats(pstats.SortKey.CUMULATIVE)
     stats.print_stats(20)
     stats.dump_stats("startup_profile.prof")
-    print("Profile saved to startup_profile.prof")
+    logger.info("Profile saved to startup_profile.prof")
 
 if __name__ == "__main__":
     profile_startup()

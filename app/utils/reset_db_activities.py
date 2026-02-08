@@ -1,4 +1,5 @@
 from app.utils.config import Config
+from app.utils.logger import logger
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -9,16 +10,16 @@ def reset_activities():
     session = Session()
     
     try:
-        print("Resetting Daily Activities...")
+        logger.info("Resetting Daily Activities...")
         # Delete all records from activity tables
         # Adjust table names if necessary (checking models)
         session.execute(text("DELETE FROM daily_cor_activities"))
         session.execute(text("DELETE FROM tombola_activities"))
         session.commit()
-        print("✅ Daily activities reset successfully.")
+        logger.info("✅ Daily activities reset successfully.")
     except Exception as e:
         session.rollback()
-        print(f"❌ Error resetting DB: {e}")
+        logger.error(f"❌ Error resetting DB: {e}")
     finally:
         session.close()
 

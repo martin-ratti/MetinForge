@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QGridLayout, QPushButton, QLabel, QSizePolicy
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor
-from app.views.layouts.flow_layout import FlowLayout
+from app.presentation.views.layouts.flow_layout import FlowLayout
 
 class DayButton(QPushButton):
     # Señal que emite (dia, nuevo_estado) cuando cambia

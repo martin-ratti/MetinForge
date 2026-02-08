@@ -1,5 +1,5 @@
 import pytest
-from app.models.models import Server, StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType
+from app.domain.models import Server, StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType
 
 def test_relationships(test_db):
     # Create Server

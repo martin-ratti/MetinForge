@@ -1,12 +1,12 @@
 from sqlalchemy.orm import sessionmaker, joinedload
 from sqlalchemy import create_engine
 from app.utils.config import Config
-from app.models.models import Server, StoreAccount, GameAccount, Character, TombolaEvent, TombolaActivity
+from app.domain.models import Server, StoreAccount, GameAccount, Character, TombolaEvent, TombolaActivity
 
-from app.controllers.base_controller import BaseController
+from app.application.services.base_service import BaseService
 from app.utils.logger import logger
 
-class TombolaController(BaseController):
+class TombolaService(BaseService):
     # __init__ and get_session inherited from BaseController
     
 
@@ -18,7 +18,7 @@ class TombolaController(BaseController):
             
         session = self.get_session() # Changed from self.Session() to self.get_session() for consistency
         try:
-            from app.models.models import TombolaItemCounter
+            from app.domain.models import TombolaItemCounter
             counters = session.query(TombolaItemCounter).filter_by(event_id=event_id).all()
             return {counter.item_name: counter.count for counter in counters}
         except Exception as e:
@@ -34,7 +34,7 @@ class TombolaController(BaseController):
             
         session = self.get_session() # Changed from self.Session() to self.get_session() for consistency
         try:
-            from app.models.models import TombolaItemCounter
+            from app.domain.models import TombolaItemCounter
             counter = session.query(TombolaItemCounter).filter_by(
                 event_id=event_id,
                 item_name=item_name

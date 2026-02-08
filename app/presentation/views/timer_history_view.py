@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from app.utils.config import Config
-from app.models.models import TimerRecord
+from app.domain.models import TimerRecord
 
 class TimerHistoryView(QWidget):
     def __init__(self):

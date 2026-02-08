@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollA
                              QPushButton, QInputDialog, QMessageBox, QListWidgetItem, QComboBox,
                              QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
-from app.controllers.alchemy_controller import AlchemyController
-from app.views.widgets.daily_grid import DailyGridWidget
+from app.application.services.alchemy_service import AlchemyService
+from app.presentation.views.widgets.daily_grid import DailyGridWidget
 from app.utils.shortcuts import register_shortcuts
 import datetime
 
@@ -61,7 +61,7 @@ class AlchemyRow(QFrame):
         # Grid Activity Map
         activity_map = getattr(game_account, 'current_event_activity', {})
         
-        from app.views.widgets.daily_grid import DailyGridWidget
+        from app.presentation.views.widgets.daily_grid import DailyGridWidget
         grid_widget = DailyGridWidget(activity_map, total_days=total_days)
         
         # Connect signals
@@ -290,7 +290,7 @@ class AlchemyView(QWidget):
         super().__init__()
         self.server_id = server_id
         self.server_name = server_name
-        self.controller = AlchemyController()
+        self.controller = AlchemyService()
         
         self.data = [] 
         self.selected_email = None
@@ -388,7 +388,7 @@ class AlchemyView(QWidget):
         # ... removed ...
         
         # --- WIDGET DE ALQUIMIAS ---
-        from app.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
+        from app.presentation.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
         self.alchemy_counters_widget = AlchemyCountersWidget(
             controller=self.controller,
             event_id=None  # Se actualizará cuando se seleccione un evento
@@ -616,7 +616,7 @@ class AlchemyView(QWidget):
         self.load_data()
 
     def prompt_create_event(self):
-        from app.views.dialogs.event_dialog import EventDialog
+        from app.presentation.views.dialogs.event_dialog import EventDialog
         dialog = EventDialog(self)
         # Pre-fill name suggestion
         dialog.txt_name.setText(f"Evento {len(self.events_cache) + 1}")

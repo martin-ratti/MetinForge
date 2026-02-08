@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollA
                              QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
 from app.utils.shortcuts import register_shortcuts
-from app.controllers.tombola_controller import TombolaController
-from app.views.widgets.daily_grid import DailyGridWidget, DailyGridHeaderWidget
+from app.application.services.tombola_service import TombolaService
+from app.presentation.views.widgets.daily_grid import DailyGridWidget, DailyGridHeaderWidget
 
 class TombolaRow(QFrame):
     """Row for each game account - WITHOUT slots column"""
@@ -121,7 +121,7 @@ class TombolaView(QWidget):
         super().__init__()
         self.server_id = server_id
         self.server_name = server_name
-        self.controller = TombolaController()
+        self.controller = TombolaService()
         
         self.stores_data = [] # List of {'store': store_obj, 'accounts': [game_account_objs]}
         self.all_stores_data = [] # Full dataset for filtering
@@ -173,7 +173,7 @@ class TombolaView(QWidget):
         self.left_layout.addLayout(header_left)
         
         # Dashboard Widget
-        from app.views.widgets.tombola_dashboard import TombolaDashboardWidget
+        from app.presentation.views.widgets.tombola_dashboard import TombolaDashboardWidget
         self.dashboard = TombolaDashboardWidget(self.controller)
         self.left_layout.addWidget(self.dashboard, 1) # Stretch to fill
         
@@ -460,7 +460,7 @@ class TombolaView(QWidget):
         header_layout.addWidget(lbl_h1)
         header_layout.addWidget(lbl_h3)
         
-        from app.views.widgets.daily_grid import DailyGridHeaderWidget
+        from app.presentation.views.widgets.daily_grid import DailyGridHeaderWidget
         header_grid = DailyGridHeaderWidget(total_days=31)
         header_layout.addWidget(header_grid, 1)
         
@@ -534,7 +534,7 @@ class TombolaView(QWidget):
     def on_import_requested(self):
         from PyQt6.QtWidgets import QFileDialog
         from app.utils.excel_importer import parse_account_file
-        from app.controllers.alchemy_controller import AlchemyController
+        from app.application.services.alchemy_service import AlchemyService
         
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Importar Cuentas", "", "Excel/CSV Files (*.xlsx *.csv)"
@@ -545,8 +545,8 @@ class TombolaView(QWidget):
             
         try:
             import_data = parse_account_file(file_path)
-            # Use AlchemyController for importing since it has the generic method
-            controller = AlchemyController()
+            # Use AlchemyService for importing since it has the generic method
+            controller = AlchemyService()
             success, message = controller.bulk_import_accounts(self.server_id, import_data)
             
             if success:
@@ -558,6 +558,6 @@ class TombolaView(QWidget):
             QMessageBox.critical(self, "Error Crítico", f"Ocurrió un error al importar:\n{str(e)}")
 
     def show_help(self):
-        from app.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
+        from app.presentation.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
         dialog = HelpShortcutsDialog(self)
         dialog.exec()

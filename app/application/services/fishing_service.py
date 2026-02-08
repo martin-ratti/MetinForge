@@ -1,13 +1,13 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.config import Config
-from app.models.models import Server, StoreAccount, GameAccount, Character, CharacterType, FishingActivity
+from app.domain.models import Server, StoreAccount, GameAccount, Character, CharacterType, FishingActivity
 from sqlalchemy import extract
 
-from app.controllers.base_controller import BaseController
+from app.application.services.base_service import BaseService
 from app.utils.logger import logger
 
-class FishingController(BaseController):
+class FishingService(BaseService):
     # __init__ and get_session inherited from BaseController
 
     def get_fishing_data(self, server_id, year):

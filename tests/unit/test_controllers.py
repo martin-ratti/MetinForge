@@ -1,11 +1,11 @@
 import pytest
 from datetime import datetime
-from app.controllers.alchemy_controller import AlchemyController
-from app.controllers.fishing_controller import FishingController
-from app.controllers.tombola_controller import TombolaController
-from app.models.models import DailyCorActivity, FishingActivity, TombolaActivity
+from app.application.services.alchemy_service import AlchemyService
+from app.application.services.fishing_service import FishingService
+from app.application.services.tombola_service import TombolaService
+from app.domain.models import DailyCorActivity, FishingActivity, TombolaActivity
 
-class MockAlchemyController(AlchemyController):
+class MockAlchemyController(AlchemyService):
     def __init__(self, session):
         self.session = session
     
@@ -25,13 +25,13 @@ class MockAlchemyController(AlchemyController):
                 return current_day
             current_day += 1
 
-class MockFishingController(FishingController):
+class MockFishingController(FishingService):
     def __init__(self, session):
         self.session = session
     def get_session(self):
         return self.session
 
-class MockTombolaController(TombolaController):
+class MockTombolaController(TombolaService):
     def __init__(self, session):
         self.session = session
     

@@ -1,11 +1,11 @@
 import openpyxl
-from app.models.database_setup import init_db
-from app.models.models import StoreAccount, GameAccount, Character, CharacterType
+from app.infrastructure.database.setup import init_db
+from app.domain.models import StoreAccount, GameAccount, Character, CharacterType
 from app.utils.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-class ImportController:
+class ImportService:
     def __init__(self, session=None):
         if session:
             self.session = session

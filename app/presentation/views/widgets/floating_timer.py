@@ -5,7 +5,7 @@ from PyQt6.QtGui import QMouseEvent
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from app.utils.config import Config
-from app.models.models import TimerRecord
+from app.domain.models import TimerRecord
 
 class FloatingTimer(QWidget):
     def __init__(self):
@@ -189,7 +189,7 @@ class FloatingTimer(QWidget):
         self.btn_play.setText("▶")
         
         # Ask for name with custom dialog
-        from app.views.dialogs.save_record_dialog import SaveRecordDialog
+        from app.presentation.views.dialogs.save_record_dialog import SaveRecordDialog
         
         # Format time without HTML for dialog
         total_seconds = self.elapsed_ms // 1000
@@ -283,7 +283,7 @@ class FloatingTimer(QWidget):
         return f"{hours:02d}:{minutes:02d}:{secs:02d}<span style='font-size: 16px;'>.{ms:02d}</span>"
     
     def show_history(self):
-        from app.views.timer_history_view import TimerHistoryView
+        from app.presentation.views.timer_history_view import TimerHistoryView
         # Keep reference to prevent garbage collection
         self.history_window = TimerHistoryView()
         self.history_window.show()

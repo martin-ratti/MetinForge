@@ -1,16 +1,18 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.config import Config
-from app.models.models import Base, StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType, Server, AlchemyEvent
+from app.domain.models import Base, StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType, Server, AlchemyEvent
 import datetime
 import random
+
+from app.utils.logger import logger
 
 def seed():
     engine = create_engine(Config.get_db_url())
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    print("🌱 Iniciando Seeding (Reset completo)...")
+    logger.info("🌱 Iniciando Seeding (Reset completo)...")
     
     # Reiniciar Base de Datos (Drop & Create)
     try:
@@ -28,9 +30,9 @@ def seed():
                 con.commit()
 
         Base.metadata.create_all(engine)
-        print("✅ Esquema recreado (Tablas actualizadas: AlchemyEvent, DailyCorActivity, etc.)")
+        logger.info("✅ Esquema recreado (Tablas actualizadas: AlchemyEvent, DailyCorActivity, etc.)")
     except Exception as e:
-        print(f"⚠️ Error al recrear esquema: {e}")
+        logger.error(f"⚠️ Error al recrear esquema: {e}")
 
 
     # Base de servidores
@@ -113,9 +115,9 @@ def seed():
 
     try:
         session.commit()
-        print("✅ Datos de prueba insertados exitosamente.")
+        logger.info("✅ Datos de prueba insertados exitosamente.")
     except Exception as e:
-        print(f"❌ Error al insertar datos: {e}")
+        logger.error(f"❌ Error al insertar datos: {e}")
         session.rollback()
     finally:
         session.close()

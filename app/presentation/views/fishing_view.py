@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, 
                              QFrame, QPushButton, QComboBox, QSplitter, QListWidget, QListWidgetItem, QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
-from app.controllers.fishing_controller import FishingController
+from app.application.services.fishing_service import FishingService
 import datetime
 
 # --- WIDGETS ---
@@ -301,7 +301,7 @@ class FishingView(QWidget):
         super().__init__()
         self.server_id = server_id
         self.server_name = server_name
-        self.controller = FishingController()
+        self.controller = FishingService()
         self.current_year = datetime.date.today().year
         self.current_year = datetime.date.today().year
         self.data_cache = []
@@ -647,7 +647,7 @@ class FishingView(QWidget):
         self.batch_toolbar.setVisible(count > 0)
 
     def show_help(self):
-        from app.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
+        from app.presentation.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
         dialog = HelpShortcutsDialog(self)
         dialog.exec()
 

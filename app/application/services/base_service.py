@@ -2,9 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.config import Config
 
-class BaseController:
+class BaseService:
     """
-    Base controller that handles database connection and session creation.
+    Base service that handles database connection and session creation.
     """
     def __init__(self):
         self.engine = create_engine(Config.get_db_url())
@@ -18,7 +18,7 @@ class BaseController:
         """Returns all servers."""
         session = self.get_session()
         try:
-            from app.models.models import Server
+            from app.domain.models import Server
             return session.query(Server).all()
         finally:
             session.close()

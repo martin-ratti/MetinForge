@@ -2,9 +2,9 @@ import pytest
 import sys
 from PyQt6.QtWidgets import QApplication, QPushButton
 from PyQt6.QtCore import Qt
-from app.views.main_menu_view import MainMenuView
-from app.views.server_selection_view import ServerSelectionView
-from app.main import MainWindow
+from app.presentation.views.main_menu_view import MainMenuView
+from app.presentation.views.server_selection_view import ServerSelectionView
+from main import MainWindow
 
 
 
@@ -36,7 +36,7 @@ def test_navigation_to_server_selection(qtbot):
     mock_server.has_fishing = True
     mock_server.has_tombola = True
 
-    with patch('app.views.server_selection_view.AlchemyController') as MockController:
+    with patch('app.presentation.views.server_selection_view.AlchemyService') as MockController:
         instance = MockController.return_value
         instance.get_servers.return_value = [mock_server]
         

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from app.controllers.import_controller import ImportController
-from app.models.models import StoreAccount, GameAccount, Character, CharacterType
+from app.application.services.import_service import ImportService
+from app.domain.models import StoreAccount, GameAccount, Character, CharacterType
 
 @pytest.fixture
 def mock_session():
@@ -9,7 +9,7 @@ def mock_session():
 
 @pytest.fixture
 def controller(mock_session):
-    return ImportController(session=mock_session)
+    return ImportService(session=mock_session)
 
 def test_import_from_excel_success(controller, mock_session, tmp_path):
     # Mock openpyxl loading

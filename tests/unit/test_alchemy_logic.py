@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from app.controllers.alchemy_controller import AlchemyController
-from app.models.models import DailyCorActivity
+from app.application.services.alchemy_service import AlchemyService
+from app.domain.models import DailyCorActivity
 
 @pytest.fixture
 def mock_session():
@@ -9,9 +9,9 @@ def mock_session():
 
 @pytest.fixture
 def controller(mock_session):
-    with patch('app.controllers.base_controller.create_engine'), \
-         patch('app.controllers.base_controller.sessionmaker'):
-        ctrl = AlchemyController()
+    with patch('app.application.services.base_service.create_engine'), \
+         patch('app.application.services.base_service.sessionmaker'):
+        ctrl = AlchemyService()
         # Mock the instance returned by Session()
         ctrl.Session = MagicMock(return_value=mock_session)
         # Also mock get_session just in case
