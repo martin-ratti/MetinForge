@@ -7,9 +7,12 @@ from app.views.server_selection_view import ServerSelectionView
 from app.views.main_menu_view import MainMenuView
 import os
 
+from app.utils.logger import logger
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        logger.info("Starting MetinForge Manager v1.0")
         self.setWindowTitle("MetinForge Manager v1.0")
         self.setGeometry(100, 100, 1400, 900)
         
@@ -52,7 +55,7 @@ class MainWindow(QMainWindow):
         elif feature == "tombola":
             self.show_tombola(server_id, server_name)
         else:
-            print(f"Feature {feature} not implemented yet.")
+            logger.warning(f"Feature {feature} not implemented yet.")
 
     def show_fishing(self, server_id, server_name):
         from app.views.fishing_view import FishingView
@@ -102,7 +105,7 @@ def main():
         with open(style_path, "r") as f:
             app.setStyleSheet(f.read())
     else:
-        print("⚠️ No se encontró el estilo Metin2, usando default.")
+        logger.warning("⚠️ No se encontró el estilo Metin2, usando default.")
     
     window = MainWindow()
     window.show()

@@ -5,6 +5,7 @@ from app.models.models import Server, StoreAccount, GameAccount, Character, Char
 from sqlalchemy import extract
 
 from app.controllers.base_controller import BaseController
+from app.utils.logger import logger
 
 class FishingController(BaseController):
     # __init__ and get_session inherited from BaseController
@@ -98,7 +99,7 @@ class FishingController(BaseController):
             session.commit()
             return True
         except Exception as e:
-            print(f"Error updating fishing status: {e}")
+            logger.error(f"Error updating fishing status: {e}")
             session.rollback()
             return False
         finally:
@@ -132,7 +133,7 @@ class FishingController(BaseController):
             return 12, 4
             
         except Exception as e:
-            print(f"Error calculating next fishing week: {e}")
+            logger.error(f"Error calculating next fishing week: {e}")
             return 1, 1
         finally:
             session.close()

@@ -4,16 +4,12 @@ from app.utils.config import Config
 from app.models.models import Server, StoreAccount, GameAccount, Character, TombolaEvent, TombolaActivity
 
 from app.controllers.base_controller import BaseController
+from app.utils.logger import logger
 
 class TombolaController(BaseController):
     # __init__ and get_session inherited from BaseController
     
-    def get_servers(self):
-        session = self.get_session()
-        try:
-            return session.query(Server).all()
-        finally:
-            session.close()
+
     
     def get_tombola_item_counters(self, event_id):
         """Obtiene todos los contadores de items para un evento tombola"""
@@ -26,7 +22,7 @@ class TombolaController(BaseController):
             counters = session.query(TombolaItemCounter).filter_by(event_id=event_id).all()
             return {counter.item_name: counter.count for counter in counters}
         except Exception as e:
-            print(f"❌ Error al obtener contadores tombola: {e}")
+            logger.error(f"❌ Error al obtener contadores tombola: {e}")
             return {}
         finally:
             session.close()
@@ -57,7 +53,7 @@ class TombolaController(BaseController):
             session.commit()
             return True
         except Exception as e:
-            print(f"❌ Error al actualizar item tombola: {e}")
+            logger.error(f"❌ Error al actualizar item tombola: {e}")
             session.rollback()
             return False
         finally:
@@ -77,7 +73,7 @@ class TombolaController(BaseController):
     def create_tombola_event(self, server_id, event_name):
         """Create a new tombola event (jornada)"""
         if not event_name or not event_name.strip():
-            print("❌ Error: Event name cannot be empty.")
+            logger.error("❌ Error: Event name cannot be empty.")
             return None
 
         session = self.get_session()
@@ -93,7 +89,7 @@ class TombolaController(BaseController):
             return event
         except Exception as e:
             session.rollback()
-            print(f"Error creating tombola event: {e}")
+            logger.error(f"Error creating tombola event: {e}")
             return None
         finally:
             session.close()
@@ -183,10 +179,10 @@ class TombolaController(BaseController):
                 session.add(activity)
             
             session.commit()
-            print(f"Updated character {character_id} day {day} to status {status} for event {event_id}")
+            logger.info(f"Updated character {character_id} day {day} to status {status} for event {event_id}")
         except Exception as e:
             session.rollback()
-            print(f"Error updating tombola status: {e}")
+            logger.error(f"Error updating tombola status: {e}")
         finally:
             session.close()
 
@@ -195,25 +191,4 @@ class TombolaController(BaseController):
         Calculates the first day that is NOT completed.
         Returns integer day index.
         """
-        if not event_id: return 1
-        
-        session = self.Session()
-        try:
-            activities = session.query(TombolaActivity).filter_by(
-                character_id=char_id,
-                event_id=event_id
-            ).order_by(TombolaActivity.day_index).all()
-            
-            status_map = {a.day_index: a.status_code for a in activities}
-            
-            current_day = 1
-            while True:
-                # If day status is 0 (Pending) or not found -> return it
-                if status_map.get(current_day, 0) == 0:
-                    return current_day
-                current_day += 1
-        except Exception as e:
-            print(f"Error calculating next pending day: {e}")
-            return 1
-        finally:
-            session.close()
+        return self._get_next_pending_day_generic(char_id, event_id, TombolaActivity)

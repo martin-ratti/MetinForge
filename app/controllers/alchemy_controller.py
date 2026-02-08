@@ -5,25 +5,19 @@ from app.controllers.base_controller import BaseController
 from app.models.models import StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType, DailyCorRecord, AlchemyCounter
 from collections import defaultdict
 import datetime
+from app.utils.logger import logger
 
 class AlchemyController(BaseController):
     # __init__ and get_session inherited from BaseController
 
-    # Nuevo método para obtener servidores
-    def get_servers(self):
-        Session = self.Session()
-        from app.models.models import Server
-        try:
-            return Session.query(Server).all()
-        finally:
-            Session.close()
+
 
     def create_server(self, name, flags=None):
         session = self.Session()
         from app.models.models import Server
         try:
             if not name or not name.strip():
-                print("❌ Error: Server name cannot be empty.")
+                logger.error("❌ Error: Server name cannot be empty.")
                 return False
 
             if flags is None:
@@ -43,7 +37,7 @@ class AlchemyController(BaseController):
             session.commit()
             return True
         except Exception as e:
-            print(f"❌ Error al crear servidor: {e}")
+            logger.error(f"❌ Error al crear servidor: {e}")
             session.rollback()
             return False
         finally:
@@ -76,10 +70,10 @@ class AlchemyController(BaseController):
             elif feature_key == 'tombola': server.has_tombola = state
             
             session.commit()
-            print(f"Updated Server {server.name} feature {feature_key} to {state}")
+            logger.info(f"Updated Server {server.name} feature {feature_key} to {state}")
             return True
         except Exception as e:
-            print(f"Error updating server feature: {e}")
+            logger.error(f"Error updating server feature: {e}")
             session.rollback()
             return False
         finally:
@@ -90,22 +84,23 @@ class AlchemyController(BaseController):
         from app.models.models import StoreAccount
         try:
             if not email:
-                print("❌ Create Email: Empty email")
+                logger.error("❌ Create Email: Empty email")
                 return False
             
             email = email.strip()
             existing = session.query(StoreAccount).filter_by(email=email).first()
             if existing:
-                print(f"⚠️ Create Email: Email '{email}' already exists.")
+                logger.warning(f"⚠️ Create Email: Email '{email}' already exists.")
                 return False 
             
             new_store = StoreAccount(email=email)
             session.add(new_store)
+            session.add(new_store)
             session.commit()
-            print(f"✅ Create Email: Created '{email}'")
+            logger.info(f"✅ Create Email: Created '{email}'")
             return True
         except Exception as e:
-            print(f"❌ Error al crear email: {e}")
+            logger.error(f"❌ Error al crear email: {e}")
             session.rollback()
             return False
         finally:
@@ -114,19 +109,19 @@ class AlchemyController(BaseController):
     def create_game_account(self, server_id, username, slots=5, store_email=None, pj_name="PJ"):
         session = self.Session()
         try:
-            print(f"Trying to create account: User={username}, Server={server_id}, Email={store_email}")
+            logger.info(f"Trying to create account: User={username}, Server={server_id}, Email={store_email}")
             if not username or not store_email: 
-                print("❌ Create Account: Missing fields")
+                logger.error("❌ Create Account: Missing fields")
                 return False
 
             # Verificar si usuario ya existe (Globalmente, ya que el campo es unique=True)
             if session.query(GameAccount).filter_by(username=username).first():
-                print(f"⚠️ Create Account: Username '{username}' already exists globally.")
+                logger.warning(f"⚠️ Create Account: Username '{username}' already exists globally.")
                 return False
             
             store = session.query(StoreAccount).filter_by(email=store_email).first()
             if not store:
-                print(f"❌ Create Account: Store email '{store_email}' not found")
+                logger.error(f"❌ Create Account: Store email '{store_email}' not found")
                 return False
             
             new_account = GameAccount(username=username, server_id=server_id, store_account_id=store.id)
@@ -150,7 +145,7 @@ class AlchemyController(BaseController):
             session.commit()
             return True
         except Exception as e:
-            print(f"❌ Error al crear cuenta: {e}")
+            logger.error(f"❌ Error al crear cuenta: {e}")
             session.rollback()
             return False
         finally:
@@ -201,7 +196,7 @@ class AlchemyController(BaseController):
             session.commit()
             return True
         except Exception as e:
-            print(f"❌ Error al actualizar cuenta: {e}")
+            logger.error(f"❌ Error al actualizar cuenta: {e}")
             session.rollback()
             return False
         finally:
@@ -223,7 +218,7 @@ class AlchemyController(BaseController):
             session.refresh(new_event) # Load data so it persists after session close
             return new_event
         except Exception as e:
-            print(f"Error creating event: {e}")
+            logger.error(f"Error creating event: {e}")
             session.rollback()
             return None
         finally:
@@ -300,9 +295,8 @@ class AlchemyController(BaseController):
             return grouped_data
 
         except Exception as e:
-            print(f"❌ Error en Controller: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception(f"❌ Error en Controller: {e}")
+            # removed traceback import/print
             return []
         finally:
             session.close()
@@ -334,10 +328,11 @@ class AlchemyController(BaseController):
                 session.add(new_activity)
             
             session.commit()
-            print(f"Updated Char {char_id} Event {event_id} Day {day_index} -> {new_status}")
+            session.commit()
+            logger.info(f"Updated Char {char_id} Event {event_id} Day {day_index} -> {new_status}")
             
         except Exception as e:
-            print(f"❌ Error al guardar estado: {e}")
+            logger.error(f"❌ Error al guardar estado: {e}")
             session.rollback()
         finally:
             session.close()
@@ -396,39 +391,7 @@ class AlchemyController(BaseController):
         Calculates the first day that is NOT completed (or the next one in sequence).
         Returns integer day index (1-based).
         """
-        if not event_id: return 1
-        
-        session = self.Session()
-        try:
-            # Get all activities for this char & event
-            activities = session.query(DailyCorActivity).filter_by(
-                character_id=char_id,
-                event_id=event_id
-            ).order_by(DailyCorActivity.day_index).all()
-            
-            # Create map of known statuses
-            status_map = {a.day_index: a.status_code for a in activities}
-            
-            # Find first day where status is 0 (Pending) or missing
-            # Assuming max 31 days or infinite? Just checking strictly sequential
-            # If day 1 is missing/0 -> return 1.
-            # If day 1 is done, day 2 is missing -> return 2.
-            
-            # Let's check up to 100 days just to be safe or max event days
-            # Ideally we check gaps. 
-            
-            current_day = 1
-            while True:
-                status = status_map.get(current_day, 0)
-                if status == 0:
-                    return current_day
-                current_day += 1
-                
-        except Exception as e:
-            print(f"Error calculating next day: {e}")
-            return 1
-        finally:
-            session.close()
+        return self._get_next_pending_day_generic(char_id, event_id, DailyCorActivity)
 
     # --- CORDS MANAGEMENT ---
     def update_daily_cords(self, game_account_id, event_id, day_index, cords_count):
@@ -457,10 +420,11 @@ class AlchemyController(BaseController):
                 session.add(new_record)
             
             session.commit()
-            print(f"✅ Cords actualizado: Account {game_account_id}, Day {day_index} -> {cords_count}")
+            session.commit()
+            logger.info(f"✅ Cords actualizado: Account {game_account_id}, Day {day_index} -> {cords_count}")
             return True
         except Exception as e:
-            print(f"❌ Error al guardar cords: {e}")
+            logger.error(f"❌ Error al guardar cords: {e}")
             session.rollback()
             return False
         finally:
@@ -480,7 +444,7 @@ class AlchemyController(BaseController):
             
             return {record.day_index: record.cords_count for record in records}
         except Exception as e:
-            print(f"❌ Error al obtener cords: {e}")
+            logger.error(f"❌ Error al obtener cords: {e}")
             return {}
         finally:
             session.close()
@@ -499,7 +463,7 @@ class AlchemyController(BaseController):
             
             return result or 0
         except Exception as e:
-            print(f"❌ Error al calcular total cords: {e}")
+            logger.error(f"❌ Error al calcular total cords: {e}")
             return 0
         finally:
             session.close()
@@ -521,7 +485,7 @@ class AlchemyController(BaseController):
             
             return {acc_id: total for acc_id, total in results}
         except Exception as e:
-            print(f"❌ Error al obtener resumen de cords: {e}")
+            logger.error(f"❌ Error al obtener resumen de cords: {e}")
             return {}
         finally:
             session.close()
@@ -537,7 +501,7 @@ class AlchemyController(BaseController):
             counters = session.query(AlchemyCounter).filter_by(event_id=event_id).all()
             return {counter.alchemy_type: counter.count for counter in counters}
         except Exception as e:
-            print(f"❌ Error al obtener contadores: {e}")
+            logger.error(f"❌ Error al obtener contadores: {e}")
             return {}
         finally:
             session.close()
@@ -565,10 +529,11 @@ class AlchemyController(BaseController):
                 session.add(new_counter)
             
             session.commit()
-            print(f"✅ Alquimia actualizada: {alchemy_type} -> {count}")
+            session.commit()
+            logger.info(f"✅ Alquimia actualizada: {alchemy_type} -> {count}")
             return True
         except Exception as e:
-            print(f"❌ Error al actualizar alquimia: {e}")
+            logger.error(f"❌ Error al actualizar alquimia: {e}")
             session.rollback()
             return False
         finally:
@@ -599,7 +564,7 @@ class AlchemyController(BaseController):
             session.commit()
             return True
         except Exception as e:
-            print(f"❌ Error al incrementar alquimia: {e}")
+            logger.error(f"❌ Error al incrementar alquimia: {e}")
             session.rollback()
             return False
         finally:

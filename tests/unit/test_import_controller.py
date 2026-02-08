@@ -17,7 +17,7 @@ def test_import_from_excel_success(controller, mock_session, tmp_path):
     ws_mock = MagicMock()
     wb_mock.__getitem__.return_value = ws_mock
     wb_mock.sheetnames = ["Sheet1"]
-    
+
     # Mocking rows: 
     # Row 1: Yellow (Store Account)
     # Row 2: Data (Game Account)
@@ -55,11 +55,35 @@ def test_import_from_excel_success(controller, mock_session, tmp_path):
         assert result["success"] is True
         assert result["processed_accounts"] == 1
         
-        # Verify StoreAccount creation
-        # We expect "STORE_USER@gmail.com" because implementation should append it
+        # Verify calls
+        # 1. Store Account created
+        # Logic appends @gmail.com if missing
+        # We can verify by checking calls to StoreAccount constructor or mock_session.add
+        # But since we mocked classes, we check session.add arguments
         
-        # Verify GameAccount creation
-        # Verify Character creation
+        # Actually checking if ANY call to session.add was with a StoreAccount
+        # We can iterate over call_args_list of mock_session.add
+        
+        added_objects = [call[0][0] for call in mock_session.add.call_args_list]
+        
+        store_found = False
+        game_acc_found = False
+        char_found = False
+        
+        for obj in added_objects:
+            if isinstance(obj, StoreAccount):
+                if obj.email == "STORE_USER@gmail.com":
+                    store_found = True
+            elif isinstance(obj, GameAccount):
+                if obj.username == "GAME_ACC":
+                    game_acc_found = True
+            elif isinstance(obj, Character):
+                if obj.name == "ALCHEMIST_CHAR":
+                    char_found = True
+        
+        assert store_found, "StoreAccount should be created with appened @gmail.com"
+        assert game_acc_found, "GameAccount should be created"
+        assert char_found, "Alchemist Character should be created"
 
 def test_import_ignore_valid_data_without_yellow_header(controller, mock_session):
     # If we find data rows before any yellow row, they should probably be ignored or attached to a default?
