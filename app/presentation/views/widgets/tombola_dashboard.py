@@ -1,7 +1,9 @@
+import os
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QGroupBox, QGridLayout, QSpinBox, QScrollArea,
                              QFrame, QPushButton)
-from PyQt6.QtCore import Qt, pyqtSignal
 
 class NoScrollSpinBox(QSpinBox):
     def wheelEvent(self, event):
@@ -120,7 +122,14 @@ class TombolaDashboardWidget(QWidget):
         # 1. Talismanes
         self.group_talismans = self.create_counter_group(
             "TALISMANES", 
-            ["Viento", "Tierra", "Hielo", "Fuego", "Oscuridad", "Rayo"],
+            [
+                ("Viento", "talisman_wind.png"),
+                ("Tierra", "talisman_earth.png"),
+                ("Hielo", "talisman_ice.png"),
+                ("Fuego", "talisman_fire.png"),
+                ("Oscuridad", "talisman_dark.png"),
+                ("Rayo", "talisman_lightning.png")
+            ],
             color="#4fc3f7" # Light Blue
         )
         self.content_layout.addWidget(self.group_talismans)
@@ -128,10 +137,18 @@ class TombolaDashboardWidget(QWidget):
         # 2. Premios
         self.group_prizes = self.create_counter_group(
             "PREMIOS", 
-            ["Dioxido", "Adularia", "Jadita noche", "Refinados", 
-             "Caja carta monstruo plata", "Baúl habilidad", 
-             "Cofre manual mascota", "Alubia Verde", 
-             "Hierba dorada", "Ágata"],
+            [
+                ("Dioxido", "titanium_dioxide.png"),
+                ("Adularia", "moonstone.png"), 
+                ("Jadita noche", "night_jade.png"), 
+                ("Refinados", "refined.png"), 
+                ("Caja carta monstruo plata", "silver_okey_chest.png"), 
+                ("Baúl habilidad", "skill_book_chest.png"), 
+                ("Cofre manual mascota", "pet_book_chest.png"), 
+                ("Alubia Verde", "green_dragon_bean.png"), 
+                ("Hierba dorada", "golden_herb.png"), 
+                ("Ágata", "agate.png")
+            ],
             color="#ffb74d" # Orange
         )
         self.content_layout.addWidget(self.group_prizes)
@@ -145,11 +162,13 @@ class TombolaDashboardWidget(QWidget):
         group = QGroupBox(title)
         group.setStyleSheet(f"""
             QGroupBox {{
-                border: 1px solid #5d4d2b;
-                border-radius: 5px;
-                margin-top: 10px;
+                border: 2px solid #5d4d2b;
+                border-radius: 8px;
+                margin-top: 15px;
                 font-weight: bold;
+                font-size: 13px;
                 color: {color};
+                background-color: #202020;
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
@@ -159,37 +178,86 @@ class TombolaDashboardWidget(QWidget):
         """)
         
         grid = QGridLayout()
-        grid.setSpacing(5)
+        grid.setSpacing(12)
+        grid.setContentsMargins(10, 15, 10, 10)
         
-        for i, item_name in enumerate(items):
-            lbl = QLabel(item_name)
-            lbl.setStyleSheet("color: #b0bec5; font-size: 11px;")
+        # items is now list of tuples: (name, image_filename)
+        for i, (item_name, image_file) in enumerate(items):
+            row = i // 2
+            col = i % 2
             
+            # Container for each item
+            item_container = QFrame()
+            item_container.setStyleSheet("""
+                QFrame {
+                    background-color: #2b2b2b;
+                    border: 1px solid #3e2723;
+                    border-radius: 8px;
+                    padding: 4px;
+                }
+                QFrame:hover {
+                    border: 1px solid #d4af37;
+                    background-color: #3e3e3e;
+                }
+            """)
+            item_layout = QHBoxLayout()
+            item_layout.setContentsMargins(8, 6, 8, 6)
+            item_layout.setSpacing(10)
+            item_container.setLayout(item_layout)
+
+            # Image
+            lbl_img = QLabel()
+            lbl_img.setFixedSize(48, 48) # Increased size
+            lbl_img.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_img.setStyleSheet("background-color: transparent; border: none;") # Ensure no border on image itself
+            
+            # Load Image
+            image_path = os.path.join(os.getcwd(), 'app', 'presentation', 'assets', 'images', 'tombola', image_file)
+            if os.path.exists(image_path):
+                pixmap = QPixmap(image_path)
+                # Use SmoothTransformation for better quality
+                lbl_img.setPixmap(pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            else:
+                lbl_img.setText("?")
+                lbl_img.setStyleSheet("color: red; font-weight: bold; font-size: 20px;")
+            
+            item_layout.addWidget(lbl_img)
+            
+            # Label
+            lbl_name = QLabel(item_name)
+            lbl_name.setStyleSheet("color: #e0e0e0; font-size: 12px; font-weight: bold; border: none; background: transparent;")
+            lbl_name.setWordWrap(True)
+            item_layout.addWidget(lbl_name, 1) # Stretch to fill available space
+
+            # SpinBox
             spin = NoScrollSpinBox()
             spin.setRange(0, 9999)
-            spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons) # Cleaner look
+            spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
             spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            spin.setFixedWidth(60) # Slightly wider
+            spin.setFixedHeight(30) # Taller for better touch/click target
             spin.setStyleSheet("""
                 QSpinBox {
-                    background-color: #263238;
-                    color: white;
-                    border: 1px solid #37474f;
-                    border-radius: 3px;
-                    padding: 2px;
+                    background-color: #1a1a1a;
+                    color: #ffd700;
+                    border: 1px solid #455a64;
+                    border-radius: 4px;
                     font-weight: bold;
+                    font-size: 14px;
                 }
                 QSpinBox:focus {
                     border: 1px solid #d4af37;
+                    background-color: #000000;
                 }
             """)
+            
             # Fix lambda capture
             spin.valueChanged.connect(lambda val, k=item_name: self.on_counter_changed(k, val))
-            
             self.spinboxes[item_name] = spin
             
-            row = i
-            grid.addWidget(lbl, row, 0)
-            grid.addWidget(spin, row, 1)
+            item_layout.addWidget(spin)
+            
+            grid.addWidget(item_container, row, col)
             
         group.setLayout(grid)
         return group
