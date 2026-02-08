@@ -73,7 +73,26 @@ class TombolaDashboardWidget(QWidget):
             border: none;
         """)
         day_prize_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        day_prize_layout.addWidget(day_prize_title)
+        
+        # Image for Day Prize
+        lbl_dp_img = QLabel()
+        # Removed setFixedSize to allow image to determine size (up to scaled limit)
+        lbl_dp_img.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_dp_img.setStyleSheet("background-color: transparent; border: none;")
+        
+        dp_img_path = os.path.join(os.getcwd(), 'app', 'presentation', 'assets', 'images', 'tombola', 'day_prize.png')
+        if os.path.exists(dp_img_path):
+            dp_pixmap = QPixmap(dp_img_path)
+            # Scale to smaller dimensions but keep aspect ratio (e.g., 80x80 max)
+            lbl_dp_img.setPixmap(dp_pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        
+        # Layout for Image + Title
+        dp_header_layout = QVBoxLayout()
+        dp_header_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        dp_header_layout.addWidget(lbl_dp_img, 0, Qt.AlignmentFlag.AlignCenter)
+        dp_header_layout.addWidget(day_prize_title, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        day_prize_layout.addLayout(dp_header_layout)
         
         # Controls for Day Prize (Counter)
         dp_controls = QHBoxLayout()
@@ -207,7 +226,8 @@ class TombolaDashboardWidget(QWidget):
 
             # Image
             lbl_img = QLabel()
-            lbl_img.setFixedSize(48, 48) # Increased size
+            # Removed setFixedSize to allow image to expand naturally
+            lbl_img.setMinimumSize(48, 48) 
             lbl_img.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl_img.setStyleSheet("background-color: transparent; border: none;") # Ensure no border on image itself
             
@@ -215,8 +235,9 @@ class TombolaDashboardWidget(QWidget):
             image_path = os.path.join(os.getcwd(), 'app', 'presentation', 'assets', 'images', 'tombola', image_file)
             if os.path.exists(image_path):
                 pixmap = QPixmap(image_path)
-                # Use SmoothTransformation for better quality
-                lbl_img.setPixmap(pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                # Scale with KeepAspectRatio to prevent any distortion/cropping
+                # Increased target size (e.g. 64x64) so it scales down IF needed, but doesn't get cut by a small box
+                lbl_img.setPixmap(pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             else:
                 lbl_img.setText("?")
                 lbl_img.setStyleSheet("color: red; font-weight: bold; font-size: 20px;")
@@ -267,22 +288,24 @@ class TombolaDashboardWidget(QWidget):
             self.setEnabled(False)
             # Reset values
             for spin in self.spinboxes.values():
-                spin.blockSignals(True)
-                spin.setValue(0)
-                spin.blockSignals(False)
+                if spin.value() != 0:
+                    spin.blockSignals(True)
+                    spin.setValue(0)
+                    spin.blockSignals(False)
             return
             
         self.setEnabled(True)
+        # Fetch counters in one go
         self.counters = self.controller.get_tombola_item_counters(self.event_id)
         
+        # Batch update to prevent multiple layouts/repaints if possible (though spinboxes are independent)
         for name, spin in self.spinboxes.items():
-            if name in self.counters:
+            new_val = self.counters.get(name, 0)
+            
+            # Only update if value changed to avoid unnecessary signals/repaints
+            if spin.value() != new_val:
                 spin.blockSignals(True)
-                spin.setValue(self.counters[name])
-                spin.blockSignals(False)
-            else:
-                spin.blockSignals(True)
-                spin.setValue(0)
+                spin.setValue(new_val)
                 spin.blockSignals(False)
 
     def on_counter_changed(self, item_name, value):

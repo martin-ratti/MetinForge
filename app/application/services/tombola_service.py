@@ -30,6 +30,7 @@ class TombolaService(BaseService):
     def update_tombola_item_count(self, event_id, item_name, count):
         """Actualiza el contador de un item tombola"""
         if not event_id or not item_name:
+            logger.warning("Attempted to update tombola item without event_id or item_name")
             return False
             
         session = self.get_session() # Changed from self.Session() to self.get_session() for consistency
@@ -53,7 +54,7 @@ class TombolaService(BaseService):
             session.commit()
             return True
         except Exception as e:
-            logger.error(f"❌ Error al actualizar item tombola: {e}")
+            logger.error(f"❌ Error al actualizar item tombola {item_name}: {e}")
             session.rollback()
             return False
         finally:
@@ -61,12 +62,17 @@ class TombolaService(BaseService):
     
     def get_tombola_events(self, server_id):
         """Get all tombola events for a server"""
+        if not server_id: return []
+        
         session = self.get_session()
         try:
             events = session.query(TombolaEvent).filter(
                 TombolaEvent.server_id == server_id
             ).order_by(TombolaEvent.created_at.desc()).all()
             return events
+        except Exception as e:
+            logger.error(f"Error fetching tombola events: {e}")
+            return []
         finally:
             session.close()
     
@@ -84,7 +90,6 @@ class TombolaService(BaseService):
             )
             session.add(event)
             session.commit()
-            event_id = event.id
             session.refresh(event)
             return event
         except Exception as e:
@@ -98,21 +103,20 @@ class TombolaService(BaseService):
         """
         Get data for tombola dashboard, filtered by event.
         Returns empty if no event selected.
-        Optimized.
         """
         if not server_id or not event_id:
             return []
             
-        session = self.Session()
+        session = self.get_session()
         try:
-            # 1. Eager load Store -> Games -> Chars
+            # 1. Eager load Store -> Games -> Chars using joinedload to reduce queries (N+1 fix)
             query = session.query(StoreAccount).options(
                 joinedload(StoreAccount.game_accounts).joinedload(GameAccount.characters)
             ).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
             
             stores_data = query.all()
             
-            # 2. Collect char IDs and fetch activities
+            # 2. Collect char IDs to batch fetch activities (Avoids loop queries)
             all_char_ids = []
             for store in stores_data:
                 for ga in store.game_accounts:
@@ -130,7 +134,7 @@ class TombolaService(BaseService):
                     if act.character_id not in activity_map: activity_map[act.character_id] = {}
                     activity_map[act.character_id][act.day_index] = act.status_code
 
-            # 3. Build result
+            # 3. Build result structure
             result = []
             for store in stores_data:
                 store_entry = {'store': store, 'accounts': []}
@@ -141,9 +145,8 @@ class TombolaService(BaseService):
                     if not ga.characters: continue
 
                     first_char = ga.characters[0]
+                    # Inject activity data directly into the object (transient)
                     ga.current_event_activity = activity_map.get(first_char.id, {})
-                    # ga.characters implies it has characters because of the eager load check?
-                    # logic in original code: if not chars continue.
                     
                     valid_accounts.append(ga)
                 
@@ -152,6 +155,9 @@ class TombolaService(BaseService):
                     result.append(store_entry)
             
             return result
+        except Exception as e:
+            logger.error(f"Error getting tombola dashboard data: {e}")
+            return []
         finally:
             session.close()
     
@@ -179,7 +185,7 @@ class TombolaService(BaseService):
                 session.add(activity)
             
             session.commit()
-            logger.info(f"Updated character {character_id} day {day} to status {status} for event {event_id}")
+            logger.info(f"Updated char {character_id} day {day} -> status {status}")
         except Exception as e:
             session.rollback()
             logger.error(f"Error updating tombola status: {e}")
