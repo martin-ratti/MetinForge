@@ -1,6 +1,8 @@
 from PyQt6.QtWidgets import (QFrame, QVBoxLayout, QHBoxLayout, QLabel, 
                              QSpinBox, QGridLayout, QPushButton)
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import Qt, pyqtSignal
+import os
 
 
 class NoScrollSpinBox(QSpinBox):
@@ -13,12 +15,12 @@ class AlchemyCountersWidget(QFrame):
     alchemyChanged = pyqtSignal(str, int)  # (alchemy_type, new_count)
     
     ALCHEMY_TYPES = [
-        ('diamante', '💎 Diamante', '#87CEEB'),
-        ('rubi', '🔴 Rubí', '#DC143C'),
-        ('jade', '🟢 Jade', '#00C957'),
-        ('zafiro', '🔵 Zafiro', '#4169E1'),
-        ('granate', '🟤 Granate', '#A52A2A'),
-        ('onice', '⚫ Ónice', '#2F4F4F'),
+        ('diamante', 'Diamante', 'diamond.png', '#87CEEB'),
+        ('rubi', 'Rubí', 'ruby.png', '#DC143C'),
+        ('jade', 'Jade', 'jade.png', '#00C957'),
+        ('zafiro', 'Zafiro', 'sapphire.png', '#4169E1'),
+        ('granate', 'Granate', 'garnet.png', '#A52A2A'),
+        ('onice', 'Ónice', 'onyx.png', '#2F4F4F'),
     ]
 
     def __init__(self, controller=None, event_id=None):
@@ -95,7 +97,7 @@ class AlchemyCountersWidget(QFrame):
             font-size: 16px; 
             font-weight: bold; 
             color: #d4af37; 
-            /* text-shadow: 1px 1px black; Removed unsupported property */
+
             border: none;
         """)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -105,35 +107,55 @@ class AlchemyCountersWidget(QFrame):
         grid = QGridLayout()
         grid.setSpacing(10)
         
-        for i, (alchemy_type, display_name, color) in enumerate(self.ALCHEMY_TYPES):
+        for i, (alchemy_type, display_name, image_file, color) in enumerate(self.ALCHEMY_TYPES):
             row = i // 3
             col = i % 3
             
             # Container para cada alquimia
             container = QFrame()
+            # Estilo más limpio y estético, sin bordes pesados
             container.setStyleSheet(f"""
                 QFrame {{
-                    background-color: #252540;
+                    background-color: rgba(37, 37, 64, 0.8);
+                    border: 1px solid {color}40; /* 40 hex alpha = transparencia */
+                    border-radius: 12px;
+                    padding: 8px;
+                }}
+                QFrame:hover {{
+                    background-color: rgba(37, 37, 64, 1.0);
                     border: 1px solid {color};
-                    border-radius: 6px;
-                    padding: 5px;
                 }}
             """)
             container_layout = QVBoxLayout()
-            container_layout.setContentsMargins(8, 5, 8, 5)
-            container_layout.setSpacing(5)
+            container_layout.setContentsMargins(5, 5, 5, 5)
+            container_layout.setSpacing(8)
             container.setLayout(container_layout)
             
-            # Label
-            lbl = QLabel(display_name)
-            lbl.setStyleSheet(f"""
-                color: {color}; 
-                font-weight: bold; 
-                font-size: 12px;
-                border: none;
-            """)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            container_layout.addWidget(lbl)
+            # Imagen
+            lbl_image = QLabel()
+            lbl_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_image.setFixedSize(60, 60) # Tamaño fijo para consistencia
+            
+            # Cargar imagen
+            # Ajuste de ruta: app/presentation/views/widgets/../../../presentation/assets/images/alchemy
+            # O usando relative path desde cwd si se ejecuta desde root
+            image_path = os.path.join(os.getcwd(), 'app', 'presentation', 'assets', 'images', 'alchemy', image_file)
+            if os.path.exists(image_path):
+                pixmap = QPixmap(image_path)
+                lbl_image.setPixmap(pixmap.scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            else:
+                lbl_image.setText("NO IMG")
+                lbl_image.setStyleSheet("color: red;")
+                
+            # Centrar la imagen en el layout
+            image_container = QHBoxLayout()
+            image_container.addStretch()
+            image_container.addWidget(lbl_image)
+            image_container.addStretch()
+            container_layout.addLayout(image_container)
+
+            # Tooltip con el nombre por si acaso
+            container.setToolTip(display_name)
             
             # Controles: - [SpinBox] +
             controls = QHBoxLayout()

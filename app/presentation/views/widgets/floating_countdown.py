@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt, QTimer, QPoint, QTime
 from PyQt6.QtGui import QMouseEvent, QColor
 import winsound
 import os
+import logging
 
 class SingleTimerWidget(QFrame):
     def __init__(self, parent_manager, initial_seconds=300):
@@ -248,11 +249,11 @@ class SingleTimerWidget(QFrame):
                     # SND_FILENAME | SND_ASYNC (1 | 8) | SND_LOOP (8) to loop while alarming
                     winsound.PlaySound(sound_path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
                 else:
-                    print(f"Sound not found at: {sound_path}")
+                    logging.warning(f"Sound not found at: {sound_path}")
                     # 2. Fallback to System Beep (Hardware/Driver dependent)
                     winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
             except Exception as e:
-                print(f"Error playing sound: {e}")
+                logging.error(f"Error playing sound: {e}")
         else:
             # Normal State (Flash)
             self.setStyleSheet("""

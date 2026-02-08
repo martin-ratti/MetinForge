@@ -383,9 +383,7 @@ class AlchemyView(QWidget):
         email_toolbar.addStretch()
         left_layout.addLayout(email_toolbar)
         
-        # Store List REMOVED
-        # self.store_list = QListWidget() 
-        # ... removed ...
+
         
         # --- WIDGET DE ALQUIMIAS ---
         from app.presentation.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
@@ -445,9 +443,7 @@ class AlchemyView(QWidget):
         header_right.addWidget(self.btn_add_account)
         right_layout.addLayout(header_right)
         
-        # Headers del Grid (REMOVED - Now inside StoreDetailsWidget)
-        # self.header_frame = QFrame()
-        # ...
+
         
         from app.utils.styles import SCROLLBAR_STYLESHEET
         self.scroll_details = QScrollArea()
@@ -455,13 +451,6 @@ class AlchemyView(QWidget):
         self.scroll_details.setStyleSheet("QScrollArea { border: none; background-color: transparent; }" + SCROLLBAR_STYLESHEET)
         
         # The details_container and details_layout are no longer needed as setWidget will replace the entire content
-        # self.details_container = QWidget()
-        # self.details_container.setStyleSheet("background-color: #102027;")
-        # self.details_layout = QVBoxLayout()
-        # self.details_layout.setContentsMargins(0, 0, 0, 0)
-        # self.details_container.setLayout(self.details_layout)
-        
-        # self.scroll.setWidget(self.details_container)
         right_layout.addWidget(self.scroll_details, 1) # Stretch factor 1 to fill space
         
         # --- BATCH ACTIONS TOOLBAR (Floating at bottom) ---
@@ -503,7 +492,7 @@ class AlchemyView(QWidget):
         
         right_layout.addWidget(self.batch_toolbar)
         
-        # right_layout.addStretch() # REMOVED: Caused empty block at bottom
+
 
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
@@ -650,7 +639,7 @@ class AlchemyView(QWidget):
     def on_store_filter_changed(self, index):
         self.filter_rows()
 
-    # rebuild_header Removed
+
 
     def load_data(self):
         if not self.current_event:
@@ -783,7 +772,7 @@ class AlchemyView(QWidget):
         h_layout.addWidget(lbl_h2)
         h_layout.addWidget(lbl_h3)
         
-        from app.views.widgets.daily_grid import DailyGridHeaderWidget
+        from app.presentation.views.widgets.daily_grid import DailyGridHeaderWidget
         header_grid = DailyGridHeaderWidget(total_days=total_days)
         h_layout.addWidget(header_grid, 1)
         
@@ -822,7 +811,7 @@ class AlchemyView(QWidget):
 
     def prompt_add_game_account(self):
         if not self.selected_email: return
-        from app.views.dialogs.account_dialog import AccountDialog
+        from app.presentation.views.dialogs.account_dialog import AccountDialog
         dialog = AccountDialog(self, email=self.selected_email)
         dialog.txt_email.setReadOnly(True)
         
@@ -837,7 +826,7 @@ class AlchemyView(QWidget):
     def on_edit_account_requested(self, game_account):
         first_char = game_account.characters[0] if game_account.characters else None
         current_pj_name = first_char.name.split('_')[0] if first_char else ""
-        from app.views.dialogs.account_dialog import AccountDialog
+        from app.presentation.views.dialogs.account_dialog import AccountDialog
         current_slots = len(game_account.characters)
         current_email = game_account.store_account.email
         
@@ -889,7 +878,7 @@ class AlchemyView(QWidget):
             QMessageBox.critical(self, "Error", f"Error crítico al importar: {str(e)}")
 
     def show_help(self):
-        from app.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
+        from app.presentation.views.dialogs.help_shortcuts_dialog import HelpShortcutsDialog
         dialog = HelpShortcutsDialog(self)
         dialog.exec()
 
