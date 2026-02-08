@@ -16,11 +16,14 @@ def setup_logger(name="MetinForge"):
         logger.addHandler(ch)
         
         # Optional: File Handler
-        # log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs")
-        # os.makedirs(log_dir, exist_ok=True)
-        # fh = logging.FileHandler(os.path.join(log_dir, "app.log"))
-        # fh.setFormatter(formatter)
-        # logger.addHandler(fh)
+        try:
+            log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            fh = logging.FileHandler(os.path.join(log_dir, "app.log"))
+            fh.setFormatter(formatter)
+            logger.addHandler(fh)
+        except Exception as e:
+            print(f"Failed to setup file logging: {e}")
         
     return logger
 
