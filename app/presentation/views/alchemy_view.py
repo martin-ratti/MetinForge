@@ -843,7 +843,7 @@ class AlchemyView(QWidget):
 
     def on_import_requested(self):
         from PyQt6.QtWidgets import QFileDialog
-        from app.controllers.import_controller import ImportController
+        from app.application.services.import_service import ImportService
         
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Importar Cuentas", "", "Excel Files (*.xlsx);;CSV Files (*.csv)"
@@ -858,8 +858,8 @@ class AlchemyView(QWidget):
                  QMessageBox.warning(self, "Aviso", "La importación de CSV con el nuevo formato no está soportada aún. Use Excel (.xlsx).")
                  return
 
-            # Instantiate controller (creates its own session or we could pass one if we wanted shared transaction)
-            importer = ImportController() 
+            # Instantiate service (creates its own session or we could pass one if we wanted shared transaction)
+            importer = ImportService() 
             
             result = importer.import_from_excel(file_path, self.server_id)
             
