@@ -61,7 +61,8 @@ def test_alchemy_view_import_logic(qapp):
     with patch('app.presentation.views.alchemy_view.AlchemyService') as MockService, \
          patch('app.presentation.views.widgets.alchemy_counters_widget.AlchemyCountersWidget') as MockWidgetClass, \
          patch('PyQt6.QtWidgets.QFileDialog.getOpenFileName', return_value=('dummy.xlsx', 'filter')), \
-         patch('app.application.services.import_service.ImportService') as MockImportService:
+         patch('app.application.services.import_service.ImportService'), \
+         patch('app.utils.excel_importer.parse_account_file', return_value=[]) as MockParse: # Added Mock
          
         # Configure Mock Service
         mock_event = MagicMock()
@@ -87,7 +88,7 @@ def test_alchemy_view_import_logic(qapp):
         view = AlchemyView(server_id=1, server_name="TestServer")
         
         # Trigger the import method
-        # This will import ImportService (now mocked)
+        # This will import ImportService and parse_account_file
         try:
             view.on_import_requested()
         except ImportError as e:
@@ -95,5 +96,5 @@ def test_alchemy_view_import_logic(qapp):
         except ModuleNotFoundError as e:
              pytest.fail(f"ModuleNotFoundError during on_import_requested: {e}")
             
-        # Verify ImportService was used
-        MockImportService.assert_called_once()
+        # Verify pars_account_file was used
+        MockParse.assert_called_once()

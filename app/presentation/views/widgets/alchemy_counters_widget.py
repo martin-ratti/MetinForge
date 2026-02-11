@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (QFrame, QVBoxLayout, QHBoxLayout, QLabel,
                              QSpinBox, QGridLayout, QPushButton)
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import Qt, pyqtSignal
+from app.utils.logger import logger
 import os
 
 
@@ -250,8 +251,12 @@ class AlchemyCountersWidget(QFrame):
         total = sum(sb.value() for sb in self.spinboxes.values())
         self.lbl_total.setText(f"TOTAL: {total}")
 
+    def set_total_cords(self, total):
+        """Sets the total cords label directly"""
+        self.lbl_total_cords.setText(str(total))
+
     def _update_cords_total(self):
-        """Actualiza el label de total de cords de la jornada"""
+        """Actualiza el label de total de cords de la jornada (Legacy: Database Fetch)"""
         if not self.controller or not self.event_id:
             self.lbl_total_cords.setText("0")
             return
@@ -286,6 +291,10 @@ class AlchemyCountersWidget(QFrame):
 
     def refresh(self):
         """Recarga los datos del evento actual"""
+        self.load_data()
+
+    def update_counts(self):
+        """Endpoint para actualizar contadores desde el View"""
         self.load_data()
 
     def update_cords_display(self):

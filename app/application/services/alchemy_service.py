@@ -421,10 +421,10 @@ class AlchemyService(BaseService):
             
             session.commit()
             session.commit()
-            logger.info(f"✅ Cords actualizado: Account {game_account_id}, Day {day_index} -> {cords_count}")
+            logger.info(f"Cords actualizado: Account {game_account_id}, Day {day_index} -> {cords_count}")
             return True
         except Exception as e:
-            logger.error(f"❌ Error al guardar cords: {e}")
+            logger.error(f"Error al guardar cords: {e}")
             session.rollback()
             return False
         finally:
@@ -486,6 +486,25 @@ class AlchemyService(BaseService):
             return {acc_id: total for acc_id, total in results}
         except Exception as e:
             logger.error(f"❌ Error al obtener resumen de cords: {e}")
+            return {}
+        finally:
+            session.close()
+
+    def get_all_daily_cords(self, event_id):
+        """Obtiene todos los registros diarios de cords para un evento, agrupados por cuenta"""
+        if not event_id: return {}
+        session = self.Session()
+        try:
+            records = session.query(DailyCorRecord).filter_by(event_id=event_id).all()
+            # Convert to dict of dicts: {acc_id: {day: count}}
+            result = {}
+            for r in records:
+                if r.game_account_id not in result:
+                    result[r.game_account_id] = {}
+                result[r.game_account_id][r.day_index] = r.cords_count
+            return result
+        except Exception as e:
+            logger.error(f"❌ Error al obtener todos los cords: {e}")
             return {}
         finally:
             session.close()

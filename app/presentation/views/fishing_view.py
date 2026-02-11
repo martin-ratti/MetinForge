@@ -1,7 +1,9 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, 
-                             QFrame, QPushButton, QComboBox, QSplitter, QListWidget, QListWidgetItem, QCheckBox)
+                             QFrame, QPushButton, QComboBox, QSplitter, QListWidget, QListWidgetItem, QCheckBox,
+                             QApplication, QAbstractSpinBox, QLineEdit)
 from PyQt6.QtCore import Qt, pyqtSignal
 from app.application.services.fishing_service import FishingService
+from app.utils.shortcuts import register_shortcuts
 import datetime
 
 # --- WIDGETS ---
@@ -125,8 +127,8 @@ class FishingRow(QFrame):
         
         layout = QHBoxLayout()
         layout = QHBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(5)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
         self.setLayout(layout)
 
         # 0. Checkbox
@@ -515,13 +517,8 @@ class FishingView(QWidget):
         if not filtered_data:
             return
 
-        # Container for the unified list
-        content_widget = QWidget()
-        content_layout = QVBoxLayout()
-        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(10) # Spacing between store blocks
-        content_widget.setLayout(content_layout)
+        # Reuse existing layout (cleared by clear_details)
+        content_layout = self.content_layout
         
         for store_data in filtered_data:
             # Create a "Block" for each store
@@ -546,17 +543,16 @@ class FishingView(QWidget):
             
             content_layout.addWidget(store_block)
             
-        self.scroll.setWidget(content_widget)
         self.update_batch_toolbar()
         self.update_batch_toolbar()
     
     def create_store_header(self, email):
         header_container = QWidget()
-        header_container.setStyleSheet("background-color: #102027; border-bottom: 2px solid #546e7a; margin-top: 10px;")
+        header_container.setStyleSheet("background-color: #102027; border-bottom: 2px solid #546e7a; margin-top: 5px;")
         
         v_layout = QVBoxLayout()
         v_layout.setContentsMargins(0, 0, 0, 0)
-        v_layout.setSpacing(5)
+        v_layout.setSpacing(0)
         header_container.setLayout(v_layout)
         
         # Title
@@ -604,14 +600,27 @@ class FishingView(QWidget):
         self.load_data()
 
     def setup_shortcuts(self):
-        from app.utils.shortcuts import register_shortcuts
         register_shortcuts(self, {
             'Ctrl+A': self.select_all_rows,
             'Ctrl+D': self.deselect_all_rows,
-            '1': lambda: self.apply_batch_status(1),
-            '2': lambda: self.apply_batch_status(-1),
-            '3': lambda: self.apply_batch_status(0),
         })
+        
+    def keyPressEvent(self, event):
+        """Handle 1, 2, 3 shortcuts safely (ignore if editing input)"""
+        text = event.text()
+        if text in ['1', '2', '3']:
+            # Check if an input widget has focus
+            focus_widget = QApplication.focusWidget()
+            if isinstance(focus_widget, (QAbstractSpinBox, QLineEdit)):
+                super().keyPressEvent(event)
+                return
+
+            # Trigger Batch Action
+            status_map = {'1': 1, '2': -1, '3': 0}
+            self.apply_batch_status(status_map[text])
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def select_all_rows(self):
         for row in self.rows:

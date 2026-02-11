@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
                              QFrame, QListWidget, QSplitter, QPushButton, QInputDialog, QMessageBox, QListWidgetItem, QComboBox,
-                             QCheckBox)
+                             QCheckBox, QApplication, QAbstractSpinBox, QLineEdit)
 from PyQt6.QtCore import Qt, pyqtSignal
 from app.utils.shortcuts import register_shortcuts
 from app.application.services.tombola_service import TombolaService
@@ -32,8 +32,8 @@ class TombolaRow(QFrame):
         """)
         
         layout = QHBoxLayout()
-        layout.setContentsMargins(2, 2, 2, 2) 
-        layout.setSpacing(5)
+        layout.setContentsMargins(0, 0, 0, 0) 
+        layout.setSpacing(2)
         self.setLayout(layout)
 
         # 0. Checkbox for selection
@@ -291,10 +291,24 @@ class TombolaView(QWidget):
         register_shortcuts(self, {
             'Ctrl+A': self.select_all_rows,
             'Ctrl+D': self.deselect_all_rows,
-            '1': lambda: self.apply_batch_status(1),
-            '2': lambda: self.apply_batch_status(-1),
-            '3': lambda: self.apply_batch_status(0),
         })
+
+    def keyPressEvent(self, event):
+        """Handle 1, 2, 3 shortcuts safely (ignore if editing input)"""
+        text = event.text()
+        if text in ['1', '2', '3']:
+            # Check if an input widget has focus
+            focus_widget = QApplication.focusWidget()
+            if isinstance(focus_widget, (QAbstractSpinBox, QLineEdit)):
+                super().keyPressEvent(event)
+                return
+
+            # Trigger Batch Action
+            status_map = {'1': 1, '2': -1, '3': 0}
+            self.apply_batch_status(status_map[text])
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def select_all_rows(self):
         for row in self.rows:
@@ -437,12 +451,14 @@ class TombolaView(QWidget):
             self.update_batch_toolbar()
             return
 
+        self.content_layout.setSpacing(0)
+        
         # Header Definition
         header_container = QWidget()
-        header_container.setStyleSheet("background-color: #263238; border-bottom: 2px solid #546e7a;")
+        header_container.setStyleSheet("background-color: #263238; border-bottom: 2px solid #546e7a; margin-top: 5px;")
         header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(5, 5, 5, 5)
-        header_layout.setSpacing(5)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(2)
         header_container.setLayout(header_layout)
         
         # Checkbox Placeholder

@@ -115,9 +115,9 @@ def seed():
 
     try:
         session.commit()
-        logger.info("✅ Datos de prueba insertados exitosamente.")
+        logger.info("Datos de prueba insertados exitosamente.")
     except Exception as e:
-        logger.error(f"❌ Error al insertar datos: {e}")
+        logger.error(f"Error al insertar datos: {e}")
         session.rollback()
     finally:
         session.close()
