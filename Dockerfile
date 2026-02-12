@@ -47,6 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfontconfig1 \
     fonts-dejavu-core \
     fonts-liberation \
+    fonts-noto-color-emoji \
     fontconfig \
     x11-apps \
     && rm -rf /var/lib/apt/lists/*

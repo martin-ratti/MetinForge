@@ -37,11 +37,12 @@ class FeatureCardButton(QPushButton):
                 padding: 20px;
             }
             QPushButton:hover {
-                background-color: rgba(45, 29, 15, 0.95);
+                background-color: rgba(45, 29, 15, 0.55);
                 border: 3px solid #d4af37;
                 color: #ffffff;
             }
         """)
+
     
     def enterEvent(self, event):
         self.is_hovered = True

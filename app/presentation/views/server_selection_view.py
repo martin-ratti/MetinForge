@@ -1,6 +1,16 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QGridLayout, QFrame, QInputDialog, QMessageBox, QHBoxLayout
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QIcon, QPixmap
 from app.application.services.alchemy_service import AlchemyService
+import os
+
+# Resolve asset paths once
+_ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "images")
+_ICON_PATHS = {
+    "dailies": os.path.join(_ASSETS_DIR, "cor.png"),
+    "fishing": os.path.join(_ASSETS_DIR, "fishing.png"),
+    "tombola": os.path.join(_ASSETS_DIR, "tombola", "talisman_ice.png"),
+}
 
 class ServerCard(QFrame):
     clicked = pyqtSignal()
@@ -8,7 +18,6 @@ class ServerCard(QFrame):
     def __init__(self, server, controller):
         super().__init__()
         self.server = server
-        self.controller = controller
         self.controller = controller
         # Aumentamos tamaño para que respire mejor
         self.setFixedSize(280, 180) 
@@ -45,15 +54,14 @@ class ServerCard(QFrame):
         
         layout.addStretch()
         
-        # 2. Toggle Buttons Row
+        # 2. Toggle Buttons Row — with game images
         toggles_layout = QHBoxLayout()
         toggles_layout.setSpacing(10)
         toggles_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Botones un poco más grandes y estilizados
-        self.btn_daily = self.create_toggle("💎", server.has_dailies, "dailies")
-        self.btn_fish = self.create_toggle("🐟", server.has_fishing, "fishing")
-        self.btn_tombola = self.create_toggle("🎰", server.has_tombola, "tombola")
+        self.btn_daily = self.create_toggle("dailies", server.has_dailies, "Diarias")
+        self.btn_fish = self.create_toggle("fishing", server.has_fishing, "Pesca")
+        self.btn_tombola = self.create_toggle("tombola", server.has_tombola, "Tómbola")
         
         toggles_layout.addWidget(self.btn_daily)
         toggles_layout.addWidget(self.btn_fish)
@@ -62,44 +70,47 @@ class ServerCard(QFrame):
         layout.addLayout(toggles_layout)
         layout.addSpacing(10)
         
-    def create_toggle(self, icon, checked, feature_key):
-        btn = QPushButton(icon)
+    def create_toggle(self, feature_key, checked, tooltip=""):
+        btn = QPushButton()
         btn.setCheckable(True)
         btn.setChecked(checked)
-        btn.setFixedSize(50, 50) # Más grandes
+        btn.setFixedSize(50, 50)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setToolTip(tooltip)
         
-        # Definimos los estilos aquí para poder pasarlos y swapearlos
-        # Estilo Base
+        # Load image icon
+        icon_path = _ICON_PATHS.get(feature_key, "")
+        if os.path.exists(icon_path):
+            pixmap = QPixmap(icon_path).scaled(
+                32, 32, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            btn.setIcon(QIcon(pixmap))
+            btn.setIconSize(pixmap.size())
+        
+        # Styles
         base_style = """
             QPushButton {
-                font-size: 24px;
                 border-radius: 8px;
                 margin: 0px;
             }
         """
         
-        # Estilo Activo (Dorado Brillante)
         active_style = """
             background-color: #d4af37;
             border: 3px solid #ffcc00;
-            color: #000;
-            font-weight: bold;
         """
         
-        # Estilo Inactivo (Muy Oscuro)
         inactive_style = """
             background-color: #0d0d0d;
             border: 2px solid #2b2b2b;
-            color: #333;
         """
         
-        # Aplicar inicial
         btn.setStyleSheet(base_style + (active_style if checked else inactive_style))
         
-        # Connect logic
         btn.toggled.connect(lambda state: self.on_toggle(btn, state, feature_key, base_style, active_style, inactive_style))
         return btn
+
 
     def on_toggle(self, btn, state, feature, base, active, inactive):
         # Update UI
