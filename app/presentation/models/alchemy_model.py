@@ -24,8 +24,8 @@ class AlchemyModel(QAbstractItemModel):
         self._cords_summary = {} # {account_id: {day: count}}
         self._current_day = 1 # Default
         
-        # Headers: Account, Slots, Character, Grid (Days), Cords
-        self._headers = ["Cuenta", "Slots", "Personaje", "Registro Diario", "Cords"]
+        # Headers: Account, Slots, Mezclador, Grid (Days), Cords
+        self._headers = ["Cuenta", "Slots", "Mezclador", "Registro Diario", "Cords"]
 
     def set_data(self, data, event_id, cords_summary=None):
         self.beginResetModel()
@@ -177,7 +177,10 @@ class AlchemyModel(QAbstractItemModel):
             if column == 0: # Account Name
                 return account.username
             elif column == 1: # Slots
-                return len(account.characters)
+                # Return 'slots' from the first character (since format is 1 char per account usually)
+                if account.characters:
+                    return str(account.characters[0].slots)
+                return "5"
             elif column == 2: # Character Name (Main/Alchemist)
                 # Assumes Import Controller sorts chars so 0 is Alchemist
                 return account.characters[0].name if account.characters else "-"

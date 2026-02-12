@@ -198,3 +198,24 @@ class TombolaService(BaseService):
         Returns integer day index.
         """
         return self._get_next_pending_day_generic(char_id, event_id, TombolaActivity)
+
+    def get_last_filled_day(self, char_id, event_id):
+        """
+        Calculates the last day that HAS a status (1 or -1).
+        Used for resetting/undoing actions.
+        Returns integer day index or None.
+        """
+        session = self.get_session()
+        try:
+            last_activity = session.query(TombolaActivity).filter(
+                TombolaActivity.character_id == char_id,
+                TombolaActivity.event_id == event_id,
+                TombolaActivity.status_code != 0
+            ).order_by(TombolaActivity.day_index.desc()).first()
+            
+            return last_activity.day_index if last_activity else None
+        except Exception as e:
+            logger.error(f"Error getting last filled day: {e}")
+            return None
+        finally:
+            session.close()

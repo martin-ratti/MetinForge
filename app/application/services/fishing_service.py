@@ -74,6 +74,124 @@ class FishingService(BaseService):
         finally:
             session.close()
 
+    def get_last_filled_week(self, char_id, year):
+        """
+        Returns (month, week) of the LAST filled slot (status != 0).
+        Used for undoing/resetting.
+        """
+        session = self.get_session()
+        try:
+            # Order by Month DESC, Week DESC to find the last one
+            last_act = session.query(FishingActivity).filter(
+                FishingActivity.character_id == char_id,
+                FishingActivity.year == year,
+                FishingActivity.status_code != 0
+            ).order_by(FishingActivity.month.desc(), FishingActivity.week.desc()).first()
+            
+            if last_act:
+                return last_act.month, last_act.week
+            return None, None
+        except Exception as e:
+            logger.error(f"Error getting last filled fishing week: {e}")
+            return None, None
+        finally:
+            session.close()
+
+    def import_fishing_data_from_excel(self, file_path, server_id):
+        """
+        Imports accounts from Excel/CSV and ensures they exist in DB.
+        """
+        from app.utils.excel_importer import parse_account_file
+        try:
+            data = parse_account_file(file_path)
+            return self.bulk_import_accounts(server_id, data)
+        except Exception as e:
+            logger.error(f"Import Error: {e}")
+            raise e
+
+    def bulk_import_accounts(self, server_id, import_data):
+        """
+        Creates accounts and characters from imported data.
+        Supports import_data as Dict (single) or List[Dict] (multiple).
+        """
+        from app.domain.models import StoreAccount, GameAccount, Character, CharacterType
+        
+        if isinstance(import_data, list):
+            total_count = 0
+            for item in import_data:
+                total_count += self.bulk_import_accounts(server_id, item)
+            return total_count
+
+        email = import_data.get("email")
+        characters = import_data.get("characters", [])
+        
+        if not email or not characters:
+            return 0
+            
+        session = self.get_session()
+        count = 0
+        try:
+            # 1. Ensure StoreAccount exists
+            store = session.query(StoreAccount).filter_by(email=email).first()
+            if not store:
+                store = StoreAccount(email=email)
+                session.add(store)
+                session.flush()
+                
+            for char_data in characters:
+                pj_name = char_data['name']
+                
+                # Check for explicit account name from import (Table/User format)
+                # If not present, fallback to generating from PJ name
+                account_name = char_data.get('account_name')
+                if not account_name:
+                    username = pj_name # No suffix as requested
+                else:
+                    username = account_name # No suffix as requested
+                
+                # Check for duplicates by exact username
+                existing_acc = session.query(GameAccount).filter_by(username=username).first()
+                if not existing_acc:
+                    new_acc = GameAccount(
+                        username=username,
+                        store_account_id=store.id,
+                        server_id=server_id
+                    )
+                    session.add(new_acc)
+                    session.flush()
+                    
+                    new_char = Character(
+                        name=pj_name,
+                        game_account_id=new_acc.id,
+                        char_type=CharacterType.FISHERMAN,
+                        slots=slots
+                    )
+                    session.add(new_char)
+                    count += 1
+                else:
+                    # Account exists. Check if char exists? 
+                    # Logic: If account exists, we might need to add char to it if not present?
+                    # Check if char with this name exists in this account?
+                    existing_char = session.query(Character).filter_by(name=pj_name, game_account_id=existing_acc.id).first()
+                    if not existing_char:
+                        new_char = Character(
+                            name=pj_name,
+                            game_account_id=existing_acc.id,
+                            char_type=CharacterType.FISHERMAN,
+                            slots=slots
+                        )
+                        session.add(new_char)
+                        count += 1
+            
+            session.commit()
+            return count
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Bulk Import Error: {e}")
+            return 0
+        finally:
+            session.close()
+
     def update_fishing_status(self, char_id, year, month, week, new_status):
         session = self.get_session()
         try:

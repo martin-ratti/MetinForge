@@ -12,7 +12,7 @@ def seed():
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    logger.info("🌱 Iniciando Seeding (Reset completo)...")
+    logger.info("Iniciando Seeding (Reset completo)...")
     
     # Reiniciar Base de Datos (Drop & Create)
     try:
@@ -30,9 +30,9 @@ def seed():
                 con.commit()
 
         Base.metadata.create_all(engine)
-        logger.info("✅ Esquema recreado (Tablas actualizadas: AlchemyEvent, DailyCorActivity, etc.)")
+        logger.info("Esquema recreado (Tablas actualizadas: AlchemyEvent, DailyCorActivity, etc.)")
     except Exception as e:
-        logger.error(f"⚠️ Error al recrear esquema: {e}")
+        logger.error(f"Error al recrear esquema: {e}")
 
 
     # Base de servidores
@@ -112,6 +112,7 @@ def seed():
                             event_id=event.id
                         )
                         session.add(activity)
+                        session.add(DailyCorRecord(game_account_id=game_acc.id, event_id=event.id, day_index=day_idx, cords_count=1 if status==1 else 0))
 
     try:
         session.commit()

@@ -49,6 +49,7 @@ class Character(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(50), nullable=False)
     char_type = Column(Enum(CharacterType), default=CharacterType.ALCHEMIST)
+    slots = Column(Integer, default=5) # Added to support import data
     game_account_id = Column(Integer, ForeignKey('game_accounts.id'))
     
     game_account = relationship("GameAccount", back_populates="characters")

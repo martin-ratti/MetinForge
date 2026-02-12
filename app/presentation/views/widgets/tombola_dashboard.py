@@ -315,3 +315,7 @@ class TombolaDashboardWidget(QWidget):
     def set_event_id(self, event_id):
         self.event_id = event_id
         self.load_data()
+
+    def update_stats(self):
+        """Alias for load_data to refresh stats from DB"""
+        self.load_data()

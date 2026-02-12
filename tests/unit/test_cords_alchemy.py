@@ -74,10 +74,10 @@ class TestAlchemyViewImports:
     
     def test_view_imports(self):
         """Verifica que las vistas se pueden importar"""
-        from app.presentation.views.alchemy_view import AlchemyView, AlchemyRow
+        from app.presentation.views.alchemy_view import AlchemyView
         from app.presentation.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
         
         # Solo verificamos que se pueden importar
         assert AlchemyView is not None
-        assert AlchemyRow is not None
+
         assert AlchemyCountersWidget is not None

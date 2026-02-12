@@ -340,7 +340,21 @@ class AlchemyService(BaseService):
     def bulk_import_accounts(self, server_id, import_data):
         """
         Creates accounts and characters from imported data.
+        Supports Dict (Legacy) or List[Dict] (Table/Multi).
         """
+        if isinstance(import_data, list):
+            success_count = 0
+            errors = []
+            for item in import_data:
+                ok, msg = self.bulk_import_accounts(server_id, item)
+                if ok: success_count += 1
+                else: errors.append(msg)
+            
+            if success_count > 0:
+                return True, f"Importación masiva: {success_count} grupos procesados. {len(errors)} errores."
+            else:
+                return False, f"Fallo en importación. Errores: {'; '.join(errors[:3])}..."
+
         email = import_data.get("email")
         characters = import_data.get("characters", [])
         
@@ -358,11 +372,13 @@ class AlchemyService(BaseService):
                 
             for char_data in characters:
                 pj_name = char_data['name']
-                slots = char_data['slots']
+                slots = char_data.get('slots', 5)
                 
-                # Check if character already exists for this store/server
-                # Using a simpler check: username based on pj_name
-                username = f"{pj_name}_acc"
+                account_name = char_data.get('account_name')
+                if not account_name:
+                    username = pj_name
+                else:
+                    username = account_name
                 
                 existing_acc = session.query(GameAccount).filter_by(username=username).first()
                 if not existing_acc:
@@ -377,15 +393,30 @@ class AlchemyService(BaseService):
                     new_char = Character(
                         name=pj_name,
                         game_account_id=new_acc.id,
-                        char_type=CharacterType.ALCHEMIST
+                        char_type=CharacterType.ALCHEMIST,
+                        slots=slots
                     )
                     session.add(new_char)
+                    count += 1
+                else:
+                    existing_char = session.query(Character).filter_by(name=pj_name, game_account_id=existing_acc.id).first()
+                    if not existing_char:
+                        new_char = Character(
+                            name=pj_name,
+                            game_account_id=existing_acc.id,
+                            char_type=CharacterType.ALCHEMIST,
+                            slots=slots
+                        )
+                        session.add(new_char)
+                        count += 1
             
             session.commit()
-            return True, f"Importación exitosa: {len(characters)} personajes cargados."
+            return True, f"Importación exitosa: {count} personajes cargados para {email}."
         except Exception as e:
             session.rollback()
             return False, str(e)
+        finally:
+            session.close()
     def get_next_pending_day(self, char_id, event_id):
         """
         Calculates the first day that is NOT completed (or the next one in sequence).
