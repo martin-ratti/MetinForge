@@ -29,7 +29,8 @@ def test_alchemy_view_import_logic(qapp):
     with patch('app.presentation.views.alchemy_view.AlchemyService') as MockService, \
          patch('app.presentation.views.widgets.alchemy_counters_widget.AlchemyCountersWidget') as MockWidgetClass, \
          patch('PyQt6.QtWidgets.QFileDialog.getOpenFileName', return_value=('dummy.xlsx', 'filter')), \
-         patch('app.utils.excel_importer.parse_account_file', return_value=[]) as MockParse:
+         patch('app.utils.excel_importer.parse_account_file', return_value=[]) as MockParse, \
+         patch('app.presentation.views.alchemy_view.QMessageBox'):
          
         mock_event = MagicMock()
         mock_event.id = 1

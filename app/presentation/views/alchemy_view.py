@@ -340,11 +340,20 @@ class AlchemyView(QWidget):
              try:
                  data = parse_account_file(file_path)
                  logger.info(f"Importando archivo: {file_path}")
-                 logger.info(f"  Email detectado: {data.get('email', 'N/A')}")
-                 logger.info(f"  Personajes encontrados: {len(data.get('characters', []))}")
                  
-                 if not data.get('email') or not data.get('characters'):
-                     QMessageBox.warning(self, "Importacion", "No se encontraron datos validos en el archivo.\nVerifica que el formato sea correcto.")
+                 if isinstance(data, dict):
+                     logger.info(f"  Email detectado: {data.get('email', 'N/A')}")
+                     logger.info(f"  Personajes encontrados: {len(data.get('characters', []))}")
+                     if not data.get('email') or not data.get('characters'):
+                         QMessageBox.warning(self, "Importacion", "No se encontraron datos validos en el archivo.\nVerifica que el formato sea correcto.")
+                         return
+                 elif isinstance(data, list):
+                     if not data:
+                         QMessageBox.warning(self, "Importacion", "No se encontraron datos validos en el archivo.\nVerifica que el formato sea correcto.")
+                         return
+                     logger.info(f"  Grupos encontrados: {len(data)}")
+                 else:
+                     QMessageBox.warning(self, "Importacion", "Formato de datos no reconocido.")
                      return
                  
                  ok, msg = self.controller.bulk_import_accounts(self.server_id, data)
