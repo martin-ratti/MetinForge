@@ -12,3 +12,11 @@ venv/
 # Logs
 *.log
 logs/
+
+# Tests / Coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Data files
+*.xlsx

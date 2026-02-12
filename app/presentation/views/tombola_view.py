@@ -7,7 +7,7 @@ from app.utils.logger import logger
 from app.application.services.tombola_service import TombolaService
 from app.presentation.models.tombola_model import TombolaModel
 from app.presentation.delegates.tombola_grid_delegate import TombolaGridDelegate
-from app.presentation.utils.feedback import FeedbackManager
+from app.utils.feedback import FeedbackManager
 from app.utils.shortcuts import register_shortcuts
 import datetime
 

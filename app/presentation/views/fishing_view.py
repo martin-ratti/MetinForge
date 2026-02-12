@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt, QModelIndex, QEvent, pyqtSignal, QItemSelectionMode
 from app.application.services.fishing_service import FishingService
 from app.presentation.models.fishing_model import FishingModel
 from app.presentation.delegates.fishing_grid_delegate import FishingGridDelegate
-from app.presentation.utils.feedback import FeedbackManager
+from app.utils.feedback import FeedbackManager
 from app.utils.shortcuts import register_shortcuts
 from app.utils.logger import logger
 import datetime

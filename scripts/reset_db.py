@@ -1,4 +1,4 @@
-from app.infrastructure.database.setup import init_db
+from app.utils.db_setup import init_db
 from app.domain.base import Base
 from app.utils.config import Config
 from app.utils.logger import logger
