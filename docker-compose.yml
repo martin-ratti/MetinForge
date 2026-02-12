@@ -1,20 +1,59 @@
+# ─────────────────────────────────────────────
+# MetinForge — Docker Compose
+# ─────────────────────────────────────────────
+
 services:
+  # ── MySQL Database ──────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: metinforge_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-sombrerodepaja}
+      MYSQL_DATABASE: ${DB_NAME:-metin_manager_db}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    networks:
+      - metinforge_net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-sombrerodepaja}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── MetinForge Application ─────────────────
   metinforge:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: metinforge_app
+    env_file:
+      - .env
     environment:
+      # Override DB_HOST to point to the MySQL container
+      - DB_HOST=db
+      # X11 forwarding for GUI display
       - DISPLAY=host.docker.internal:0.0
       - QT_X11_NO_MITSHM=1
     volumes:
-      - ./app/data:/app/data
-      - ./app/logs:/app/logs
+      # Persist logs on host
+      - ./logs:/app/logs
+      # X11 socket for GUI rendering
       - /tmp/.X11-unix:/tmp/.X11-unix
+    networks:
+      - metinforge_net
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
-    # Privileged or specific capabilities might be needed for some X11 setups
-    # privileged: true 
 
 volumes:
-  metin_data:
-  metin_logs:
+  mysql_data:
+
+
+networks:
+  metinforge_net:
+    driver: bridge

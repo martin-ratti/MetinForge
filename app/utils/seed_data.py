@@ -10,7 +10,6 @@ from app.utils.logger import logger
 def seed():
     engine = create_engine(Config.get_db_url())
     Session = sessionmaker(bind=engine)
-    session = Session()
 
     logger.info("Iniciando Seeding (Reset completo)...")
     
@@ -31,8 +30,11 @@ def seed():
         logger.info("Esquema recreado.")
     except Exception as e:
         logger.error(f"Error al recrear esquema: {e}")
+        return
 
-    # Servidores
+    # Session created AFTER schema operations to avoid deadlock
+    session = Session()
+
     servers = []
     
     s1 = Server(name="Safiro", has_dailies=True, has_fishing=True, has_tombola=True)

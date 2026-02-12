@@ -8,8 +8,21 @@ from app.utils.logger import logger
 
 class AlchemyService(BaseService):
 
+    def get_servers(self):
+        """Retorna todos los servidores registrados."""
+        session = self.get_session()
+        from app.domain.models import Server
+        try:
+            return session.query(Server).order_by(Server.name).all()
+        except Exception as e:
+            logger.error(f"Error al obtener servidores: {e}")
+            return []
+        finally:
+            if not self._injected_session:
+                session.close()
+
     def create_server(self, name, flags=None):
-        session = self.Session()
+        session = self.get_session()
         from app.domain.models import Server
         try:
             if not name or not name.strip():
@@ -36,7 +49,7 @@ class AlchemyService(BaseService):
             session.close()
 
     def get_server_flags(self, server_id):
-        session = self.Session()
+        session = self.get_session()
         from app.domain.models import Server
         try:
             server = session.query(Server).get(server_id)
@@ -51,7 +64,7 @@ class AlchemyService(BaseService):
             session.close()
 
     def update_server_feature(self, server_id, feature_key, state):
-        session = self.Session()
+        session = self.get_session()
         from app.domain.models import Server
         try:
             server = session.query(Server).get(server_id)
@@ -72,7 +85,7 @@ class AlchemyService(BaseService):
             session.close()
 
     def create_store_email(self, email):
-        session = self.Session()
+        session = self.get_session()
         from app.domain.models import StoreAccount
         try:
             if not email:
@@ -98,7 +111,7 @@ class AlchemyService(BaseService):
             session.close()
 
     def create_game_account(self, server_id, username, slots=5, store_email=None, pj_name="PJ"):
-        session = self.Session()
+        session = self.get_session()
         try:
             logger.info(f"Trying to create account: User={username}, Server={server_id}, Email={store_email}")
             if not username or not store_email: 
@@ -135,7 +148,7 @@ class AlchemyService(BaseService):
             session.close()
 
     def update_game_account(self, account_id, new_username, new_slots, new_email=None):
-        session = self.Session()
+        session = self.get_session()
         try:
             account = session.query(GameAccount).get(account_id)
             if not account:
@@ -180,7 +193,7 @@ class AlchemyService(BaseService):
     # --- EVENTOS ALQUIMIA ---
 
     def create_alchemy_event(self, server_id, name, days):
-        session = self.Session()
+        session = self.get_session()
         from app.domain.models import AlchemyEvent
         try:
             new_event = AlchemyEvent(
@@ -201,7 +214,7 @@ class AlchemyService(BaseService):
             session.close()
 
     def get_alchemy_events(self, server_id):
-        session = self.Session()
+        session = self.get_session()
         from app.domain.models import AlchemyEvent
         try:
             return session.query(AlchemyEvent).filter_by(server_id=server_id).order_by(AlchemyEvent.id.desc()).all()
@@ -213,7 +226,7 @@ class AlchemyService(BaseService):
         if not server_id or not event_id:
             return []
             
-        session = self.Session()
+        session = self.get_session()
         try:
             query = session.query(StoreAccount).options(
                 joinedload(StoreAccount.game_accounts).joinedload(GameAccount.characters)
@@ -321,7 +334,7 @@ class AlchemyService(BaseService):
             return False, "Datos incompletos en el archivo."
             
         count = 0
-        session = self.Session()
+        session = self.get_session()
         try:
             store = session.query(StoreAccount).filter_by(email=email).first()
             if not store:
@@ -383,7 +396,7 @@ class AlchemyService(BaseService):
         if not event_id or not game_account_id:
             return False
             
-        session = self.Session()
+        session = self.get_session()
         try:
             record = session.query(DailyCorRecord).filter_by(
                 game_account_id=game_account_id,
@@ -417,7 +430,7 @@ class AlchemyService(BaseService):
         if not event_id or not game_account_id:
             return {}
             
-        session = self.Session()
+        session = self.get_session()
         try:
             records = session.query(DailyCorRecord).filter_by(
                 game_account_id=game_account_id,
@@ -436,7 +449,7 @@ class AlchemyService(BaseService):
         if not event_id or not game_account_id:
             return 0
             
-        session = self.Session()
+        session = self.get_session()
         try:
             result = session.query(func.sum(DailyCorRecord.cords_count)).filter_by(
                 game_account_id=game_account_id,
@@ -455,7 +468,7 @@ class AlchemyService(BaseService):
         if not event_id:
             return {}
             
-        session = self.Session()
+        session = self.get_session()
         try:
             results = session.query(
                 DailyCorRecord.game_account_id,
@@ -474,7 +487,7 @@ class AlchemyService(BaseService):
     def get_all_daily_cords(self, event_id):
         """Obtiene todos los registros diarios de cords para un evento, agrupados por cuenta."""
         if not event_id: return {}
-        session = self.Session()
+        session = self.get_session()
         try:
             records = session.query(DailyCorRecord).filter_by(event_id=event_id).all()
             result = {}
@@ -496,7 +509,7 @@ class AlchemyService(BaseService):
         if not event_id:
             return {}
             
-        session = self.Session()
+        session = self.get_session()
         try:
             counters = session.query(AlchemyCounter).filter_by(event_id=event_id).all()
             return {counter.alchemy_type: counter.count for counter in counters}
@@ -511,7 +524,7 @@ class AlchemyService(BaseService):
         if not event_id or not alchemy_type:
             return False
             
-        session = self.Session()
+        session = self.get_session()
         try:
             counter = session.query(AlchemyCounter).filter_by(
                 event_id=event_id,
@@ -543,7 +556,7 @@ class AlchemyService(BaseService):
         if not event_id or not alchemy_type:
             return False
             
-        session = self.Session()
+        session = self.get_session()
         try:
             counter = session.query(AlchemyCounter).filter_by(
                 event_id=event_id,

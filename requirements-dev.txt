@@ -1,0 +1,6 @@
+# Development & Testing dependencies
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+pytest==9.0.2
+pytest-qt==4.5.0
+pytest-cov==7.0.0
+pip-audit==2.8.0

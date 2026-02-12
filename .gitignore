@@ -20,3 +20,6 @@ htmlcov/
 
 # Data files
 *.xlsx
+
+# Docker
+docker-compose.override.yml

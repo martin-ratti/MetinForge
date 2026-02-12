@@ -1,17 +1,52 @@
+# ─── Python ───
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
+
+# ─── Environment / Secrets ───
 .env
+.env.local
+.env.*.local
+
+# ─── Testing ───
 .pytest_cache/
 .coverage
 htmlcov/
-*.xlsx
+tests/
+requirements-dev.txt
+
+# ─── Logs & Data (mounted as volumes) ───
+logs/
 *.log
-docker-compose.override.yml
-.git/
+
+# ─── IDE / Editor ───
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# ─── Build artifacts ───
 dist/
 build/
 *.spec
+*.egg-info/
+
+# ─── Docker ───
+docker-compose.override.yml
+
+# ─── Git / CI ───
+.git/
+.gitignore
+
+# ─── Project docs (not needed in image) ───
+README.md
+*.md
+!requirements*.txt
+
+# ─── Agents / Tools ───
+.agent/
+.gemini/
+
+# ─── Data files ───
+*.xlsx

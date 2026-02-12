@@ -2,9 +2,27 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QScrollArea, QDialog, QTimeEdit, QFrame)
 from PyQt6.QtCore import Qt, QTimer, QPoint, QTime
 from PyQt6.QtGui import QMouseEvent, QColor
-import winsound
+import sys
 import os
 import logging
+
+# winsound is Windows-only; provide a no-op fallback for Linux (Docker)
+if sys.platform == 'win32':
+    import winsound
+else:
+    class _WinsoundStub:
+        """No-op stub for winsound on non-Windows platforms."""
+        SND_PURGE = 0
+        SND_FILENAME = 0
+        SND_ASYNC = 0
+        SND_LOOP = 0
+        MB_ICONEXCLAMATION = 0
+        @staticmethod
+        def PlaySound(*args, **kwargs): pass
+        @staticmethod
+        def MessageBeep(*args, **kwargs): pass
+    winsound = _WinsoundStub()
+
 
 class SingleTimerWidget(QFrame):
     def __init__(self, parent_manager, initial_seconds=300):
