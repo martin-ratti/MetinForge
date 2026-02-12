@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.config import Config
-from app.domain.models import Base, StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType, Server, AlchemyEvent
+from app.domain.models import Base, StoreAccount, GameAccount, Character, DailyCorActivity, DailyCorRecord, CharacterType, Server, AlchemyEvent
 import datetime
 import random
 
@@ -14,13 +14,11 @@ def seed():
 
     logger.info("Iniciando Seeding (Reset completo)...")
     
-    # Reiniciar Base de Datos (Drop & Create)
     try:
-        # MySQL fix for foreign keys causing drop_all to fail
         if 'mysql' in Config.get_db_url():
             with engine.connect() as con:
                 con.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 0;")
-                con.commit() # Important for some drivers
+                con.commit()
         
         Base.metadata.drop_all(engine)
         
@@ -30,31 +28,27 @@ def seed():
                 con.commit()
 
         Base.metadata.create_all(engine)
-        logger.info("Esquema recreado (Tablas actualizadas: AlchemyEvent, DailyCorActivity, etc.)")
+        logger.info("Esquema recreado.")
     except Exception as e:
         logger.error(f"Error al recrear esquema: {e}")
 
-
-    # Base de servidores
+    # Servidores
     servers = []
     
-    # Safiro: Todo activado
     s1 = Server(name="Safiro", has_dailies=True, has_fishing=True, has_tombola=True)
     session.add(s1)
     servers.append(s1)
 
-    # Rubi: Solo pesca y tombola (ejemplo)
     s2 = Server(name="Rubi", has_dailies=True, has_fishing=True, has_tombola=False) 
     session.add(s2)
     servers.append(s2)
 
     session.commit()
 
-    # Create Default Alchemy Event for each server
+    # Eventos de Alquimia
     alchemy_events = {}
     for server in servers:
         today = datetime.date.today()
-        # Evento de Enero (o mes actual)
         event_name = f"Evento Alquimia {today.strftime('%B %Y')}"
         event = AlchemyEvent(server_id=server.id, name=event_name, total_days=30, created_at=today)
         session.add(event)
@@ -62,7 +56,7 @@ def seed():
     
     session.commit()
 
-    # Crear Tiendas
+    # Tiendas
     stores = []
     for i in range(1, 4):
         store = StoreAccount(email=f"fragmetin{i}@gmail.com")
@@ -71,10 +65,9 @@ def seed():
     
     session.commit()
 
-    # Crear Cuentas de Juego y Personajes
+    # Cuentas de Juego y Personajes
     for store in stores:
-        for j in range(1, 5): # 4 Cuentas por tienda
-            # Asignar servidor aleatorio
+        for j in range(1, 5):
             assigned_server = random.choice(servers)
             
             game_acc = GameAccount(
@@ -83,28 +76,22 @@ def seed():
                 server=assigned_server
             )
             session.add(game_acc)
-            session.flush() # Need ID
+            session.flush()
             
-            # Crear 5 Personajes por cuenta
             for k in range(5):
-                char_name = f"PJ {k+1}"
                 char = Character(
-                    name=char_name,
+                    name=f"PJ {k+1}",
                     char_type=CharacterType.ALCHEMIST,
-                    game_account_id=game_acc.id # Use explicit ID
+                    game_account_id=game_acc.id
                 )
                 session.add(char)
-                session.flush() # Need ID for activities
+                session.flush()
 
-                # Crear actividad random para el evento actual
                 event = alchemy_events[assigned_server.id]
-                
-                # Simular progreso hasta el da de hoy (ej. dia 15)
                 days_progress = 15 
                 for day_idx in range(1, days_progress + 1):
-                    # 70% chance de tener actividad
                     if random.random() > 0.3:
-                        status = 1 if random.random() > 0.2 else -1 # 80% exito, 20% fallo
+                        status = 1 if random.random() > 0.2 else -1
                         activity = DailyCorActivity(
                             day_index=day_idx,
                             status_code=status,
@@ -112,7 +99,12 @@ def seed():
                             event_id=event.id
                         )
                         session.add(activity)
-                        session.add(DailyCorRecord(game_account_id=game_acc.id, event_id=event.id, day_index=day_idx, cords_count=1 if status==1 else 0))
+                        session.add(DailyCorRecord(
+                            game_account_id=game_acc.id, 
+                            event_id=event.id, 
+                            day_index=day_idx, 
+                            cords_count=1 if status == 1 else 0
+                        ))
 
     try:
         session.commit()

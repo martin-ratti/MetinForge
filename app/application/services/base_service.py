@@ -1,56 +1,46 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.config import Config
-from app.utils.logger import logger
 
 class BaseService:
-    """
-    Base service that handles database connection and session creation.
-    """
-    def __init__(self):
-        self.engine = create_engine(Config.get_db_url())
-        self.Session = sessionmaker(bind=self.engine) # Standard session factory
+    """Servicio base con factory de sesiones y utilidades compartidas."""
+    
+    _engine = None
+    _SessionFactory = None
+
+    def __init__(self, session=None):
+        self._injected_session = session
+
+    @classmethod
+    def _init_engine(cls):
+        if cls._engine is None:
+            cls._engine = create_engine(Config.get_db_url(), pool_recycle=3600)
+            cls._SessionFactory = sessionmaker(bind=cls._engine)
 
     def get_session(self):
-        """Returns a new session instance."""
-        return self.Session()
+        if self._injected_session:
+            return self._injected_session
+        self._init_engine()
+        return self._SessionFactory()
 
-    def get_servers(self):
-        """Returns all servers."""
+    def _get_next_pending_day_generic(self, char_id, event_id, activity_model, max_days=31):
+        """Retorna el proximo dia pendiente (status == 0 o sin registro)."""
         session = self.get_session()
         try:
-            from app.domain.models import Server
-            return session.query(Server).all()
-        finally:
-            session.close()
-
-    def _get_next_pending_day_generic(self, char_id, event_id, activity_model):
-        """
-        Generic implementation for finding the next pending day.
-        """
-        if not event_id: return 1
-        
-        session = self.get_session()
-        try:
-            # Get all activities for this char & event
             activities = session.query(activity_model).filter_by(
                 character_id=char_id,
                 event_id=event_id
-            ).order_by(activity_model.day_index).all()
-            
-            # Create map of known statuses
-            status_map = {a.day_index: a.status_code for a in activities}
-            
-            # Find first day where status is 0 (Pending) or missing
-            current_day = 1
-            while True:
-                status = status_map.get(current_day, 0)
-                if status == 0:
-                    return current_day
-                current_day += 1
-                
-        except Exception as e:
-            logger.error(f"Error calculating next day: {e}")
+            ).all()
+
+            status_map = {act.day_index: act.status_code for act in activities}
+
+            for day in range(1, max_days + 1):
+                if status_map.get(day, 0) == 0:
+                    return day
+
+            return max_days
+        except Exception:
             return 1
         finally:
-            session.close()
+            if not self._injected_session:
+                session.close()

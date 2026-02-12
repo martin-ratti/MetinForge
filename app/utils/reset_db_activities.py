@@ -16,10 +16,10 @@ def reset_activities():
         session.execute(text("DELETE FROM daily_cor_activities"))
         session.execute(text("DELETE FROM tombola_activities"))
         session.commit()
-        logger.info("✅ Daily activities reset successfully.")
+        logger.info("Daily activities reset successfully.")
     except Exception as e:
         session.rollback()
-        logger.error(f"❌ Error resetting DB: {e}")
+        logger.error(f"Error resetting DB: {e}")
     finally:
         session.close()
 

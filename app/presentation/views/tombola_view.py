@@ -21,12 +21,10 @@ class TombolaView(QWidget):
         self.controller = TombolaService()
         self.feedback = FeedbackManager.instance()
         
-        # State
         self.events_cache = []
         self.current_event = None
         self.all_data = [] 
         
-        # UI Components
         self.tree_view = None
         self.model = None
         
@@ -40,12 +38,11 @@ class TombolaView(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # --- LEFT PANEL ---
+        # Panel izquierdo
         left_widget = QWidget()
         left_layout = QVBoxLayout()
         left_widget.setLayout(left_layout)
         
-        # Header Left
         header_left = QHBoxLayout()
         header_left.setSpacing(10)
         
@@ -72,18 +69,16 @@ class TombolaView(QWidget):
         header_left.addWidget(left_title, 1)
         left_layout.addLayout(header_left)
         
-        # Dashboard Widget (Reused)
         from app.presentation.views.widgets.tombola_dashboard import TombolaDashboardWidget
         self.dashboard = TombolaDashboardWidget(self.controller)
         left_layout.addWidget(self.dashboard, 1)
         
-        # --- RIGHT PANEL (TREE VIEW) ---
+        # Panel derecho (TreeView)
         right_widget = QWidget()
         right_layout = QVBoxLayout()
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_widget.setLayout(right_layout)
         
-        # Header Right
         header_right = QHBoxLayout()
         header_right.setSpacing(10)
         
@@ -92,7 +87,6 @@ class TombolaView(QWidget):
         header_right.addWidget(lbl_server)
         header_right.addStretch()
         
-        # Filters
         self.combo_store = QComboBox()
         self.combo_store.setMinimumWidth(150)
         self.combo_store.setStyleSheet("padding: 5px; background-color: #263238; color: white; border: 1px solid #546e7a; border-radius: 4px;")
@@ -105,14 +99,14 @@ class TombolaView(QWidget):
         self.combo_events.currentIndexChanged.connect(self.on_event_changed)
         header_right.addWidget(self.combo_events)
         
-        self.btn_new_event = QPushButton("➕ Nueva Jornada")
+        self.btn_new_event = QPushButton("Nueva Jornada")
         self.btn_new_event.clicked.connect(self.prompt_create_event)
         self.btn_new_event.setStyleSheet("background-color: #f57f17; color: white; border-radius: 4px; font-weight: bold; padding: 5px 10px;")
         header_right.addWidget(self.btn_new_event)
         
         right_layout.addLayout(header_right)
         
-        # --- QTREEVIEW IMPLEMENTATION ---
+        # TreeView
         self.tree_view = QTreeView()
         self.tree_view.setAlternatingRowColors(False)
         self.tree_view.setStyleSheet("""
@@ -126,7 +120,7 @@ class TombolaView(QWidget):
             QTreeView::item {
                 border-bottom: 1px solid #333;
                 padding: 0px;
-                height: 24px; /* MATCH ALCHEMY VIEW EXACTLY */
+                height: 24px;
             }
             QTreeView::item:selected {
                 background-color: #2d2d1b;
@@ -147,15 +141,12 @@ class TombolaView(QWidget):
         self.tree_view.setRootIsDecorated(True) 
         self.tree_view.installEventFilter(self)
         
-        # Init Model
         self.model = TombolaModel([], event_id=None, controller=self.controller)
         self.tree_view.setModel(self.model)
         
-        # Init Delegate
         self.grid_delegate = TombolaGridDelegate(self.tree_view, controller=self.controller, model=self.model)
         self.tree_view.setItemDelegateForColumn(2, self.grid_delegate)
         
-        # Click listener for Store Row Selection
         try: self.tree_view.clicked.disconnect(self.on_tree_clicked)
         except: pass
         self.tree_view.clicked.connect(self.on_tree_clicked)
@@ -204,12 +195,7 @@ class TombolaView(QWidget):
         self.tree_view.clearSelection()
 
     def handle_burst_action(self, status):
-        """
-        BURST MODE: 
-        1. Update selected rows (Current Day context).
-        2. Play Sound & Flash Row (Feedback).
-        3. Auto-Advance Selection.
-        """
+        """Modo Burst: 1=OK, -1=Fail, 0=Reset/Undo."""
         selected_indexes = self.tree_view.selectionModel().selectedRows()
         
         if not selected_indexes:
@@ -217,14 +203,12 @@ class TombolaView(QWidget):
             if idx.isValid(): selected_indexes = [idx]
             else: return
 
-        # Filter: Only Account Rows
         account_indexes = [ix for ix in selected_indexes if ix.data(TombolaModel.TypeRole) == "account"]
         
         if not account_indexes:
             self.move_selection_next()
             return
 
-        # Play Sound
         if status == 1: self.feedback.play_success()
         elif status == -1: self.feedback.play_fail()
 
@@ -233,47 +217,22 @@ class TombolaView(QWidget):
             char = account.characters[0] if account.characters else None
             
             if char and self.current_event:
-                # Find Next Pending Day
                 day_to_update = 1
                 if status == 0:
-                     # Reset/Skip Logic
-                     # If we want to RESET the last action, we need to find the last completed day.
-                     # If we want to SKIP, we mark the next pending as 0 (which is already 0?).
-                     # User likely wants to UNDO the last Check/Fail.
-                     # So we should look for the *highest day with status != 0*?
-                     # Or just reset the *current pending day* (if it was just mistakenly clicked)?
-                     # Let's assume the user made a mistake on the CURRENT day or wants to clear a specific day.
-                     # But Burst Mode is linear. 
-                     # If I press 1 (Day 5=OK), cursor moves to next row.
-                     # If I realize I made a mistake on Day 5, I re-select the row.
-                     # "Next Pending" will be Day 6. 
-                     # So "Reset (3)" should probably check:
-                     # If Day N is pending (0), maybe check Day N-1?
-                     # Let's try to get the assigned day from the controller or just check the last non-zero?
-                     
-                     # Simpler approach for "Burst Correction": 
-                     # Check the last filled day.
                      last_day = self.controller.get_last_filled_day(char.id, self.current_event.id)
                      if last_day and last_day > 0:
                          day_to_update = last_day
                      else:
-                         day_to_update = 1 # Fallback
+                         day_to_update = 1
                 else:
                      day_to_update = self.controller.get_next_pending_day(char.id, self.current_event.id)
                 
-                # Update
                 self.controller.update_daily_status(char.id, day_to_update, status, self.current_event.id)
                 self.model.update_daily_status(index, day_to_update, status)
-                
-                # Flash Effect (Visual Feedback)
-                # self.feedback.flash_row(self.tree_view, index, status) 
 
-        # Update Dashboard Stats
         if self.dashboard and self.current_event:
              self.dashboard.update_stats()
 
-        # Auto-Advance
-        # Rule: If Single Selection -> Move Next. If Multi -> Keep Selection (to fill subsequent days).
         if len(account_indexes) == 1:
              self.move_selection_next()
 
@@ -356,13 +315,11 @@ class TombolaView(QWidget):
         self.model.set_data(filtered_data, self.current_event.id if self.current_event else None)
         self.tree_view.expandAll()
         
-        # Span Store Headers
         for row in range(self.model.rowCount()):
              self.tree_view.setFirstColumnSpanned(row, QModelIndex(), True)
 
-        # Configure Header
         header = self.tree_view.header()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents) # Cuenta
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents) # PJ
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents) # Grid
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setStretchLastSection(False)

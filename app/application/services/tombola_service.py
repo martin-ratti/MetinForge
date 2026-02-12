@@ -7,7 +7,7 @@ from app.application.services.base_service import BaseService
 from app.utils.logger import logger
 
 class TombolaService(BaseService):
-    # __init__ and get_session inherited from BaseController
+
     
 
     
@@ -16,13 +16,13 @@ class TombolaService(BaseService):
         if not event_id:
             return {}
             
-        session = self.get_session() # Changed from self.Session() to self.get_session() for consistency
+        session = self.get_session()
         try:
             from app.domain.models import TombolaItemCounter
             counters = session.query(TombolaItemCounter).filter_by(event_id=event_id).all()
             return {counter.item_name: counter.count for counter in counters}
         except Exception as e:
-            logger.error(f"❌ Error al obtener contadores tombola: {e}")
+            logger.error(f"Error al obtener contadores tombola: {e}")
             return {}
         finally:
             session.close()
@@ -33,7 +33,7 @@ class TombolaService(BaseService):
             logger.warning("Attempted to update tombola item without event_id or item_name")
             return False
             
-        session = self.get_session() # Changed from self.Session() to self.get_session() for consistency
+        session = self.get_session()
         try:
             from app.domain.models import TombolaItemCounter
             counter = session.query(TombolaItemCounter).filter_by(
@@ -54,7 +54,7 @@ class TombolaService(BaseService):
             session.commit()
             return True
         except Exception as e:
-            logger.error(f"❌ Error al actualizar item tombola {item_name}: {e}")
+            logger.error(f"Error al actualizar item tombola {item_name}: {e}")
             session.rollback()
             return False
         finally:
@@ -79,7 +79,7 @@ class TombolaService(BaseService):
     def create_tombola_event(self, server_id, event_name):
         """Create a new tombola event (jornada)"""
         if not event_name or not event_name.strip():
-            logger.error("❌ Error: Event name cannot be empty.")
+            logger.error("Error: Event name cannot be empty.")
             return None
 
         session = self.get_session()
@@ -109,14 +109,14 @@ class TombolaService(BaseService):
             
         session = self.get_session()
         try:
-            # 1. Eager load Store -> Games -> Chars using joinedload to reduce queries (N+1 fix)
+            # Eager load para evitar N+1
             query = session.query(StoreAccount).options(
                 joinedload(StoreAccount.game_accounts).joinedload(GameAccount.characters)
             ).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
             
             stores_data = query.all()
             
-            # 2. Collect char IDs to batch fetch activities (Avoids loop queries)
+            # Batch fetch de actividades
             all_char_ids = []
             for store in stores_data:
                 for ga in store.game_accounts:
@@ -134,7 +134,7 @@ class TombolaService(BaseService):
                     if act.character_id not in activity_map: activity_map[act.character_id] = {}
                     activity_map[act.character_id][act.day_index] = act.status_code
 
-            # 3. Build result structure
+
             result = []
             for store in stores_data:
                 store_entry = {'store': store, 'accounts': []}
@@ -145,7 +145,6 @@ class TombolaService(BaseService):
                     if not ga.characters: continue
 
                     first_char = ga.characters[0]
-                    # Inject activity data directly into the object (transient)
                     ga.current_event_activity = activity_map.get(first_char.id, {})
                     
                     valid_accounts.append(ga)
@@ -165,7 +164,7 @@ class TombolaService(BaseService):
         """Update or create a tombola activity status for a specific day"""
         session = self.get_session()
         try:
-            # Try to find existing activity
+
             activity = session.query(TombolaActivity).filter(
                 TombolaActivity.character_id == character_id,
                 TombolaActivity.day_index == day,
@@ -175,7 +174,7 @@ class TombolaService(BaseService):
             if activity:
                 activity.status_code = status
             else:
-                # Create new
+
                 activity = TombolaActivity(
                     character_id=character_id,
                     day_index=day,

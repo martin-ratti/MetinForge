@@ -1,31 +1,23 @@
 from sqlalchemy.orm import joinedload
 from sqlalchemy import extract, func
 from app.application.services.base_service import BaseService
-# IMPORTANTE: Importamos todos los modelos necesarios para las relaciones
 from app.domain.models import StoreAccount, GameAccount, Character, DailyCorActivity, CharacterType, DailyCorRecord, AlchemyCounter
 from collections import defaultdict
 import datetime
 from app.utils.logger import logger
 
 class AlchemyService(BaseService):
-    # __init__ and get_session inherited from BaseController
-
-
 
     def create_server(self, name, flags=None):
         session = self.Session()
         from app.domain.models import Server
         try:
             if not name or not name.strip():
-                logger.error("❌ Error: Server name cannot be empty.")
+                logger.error("Error: Server name cannot be empty.")
                 return False
 
             if flags is None:
                 flags = {'dailies': True, 'fishing': True, 'tombola': True}
-
-            # Original check for existing name is removed as per user's provided snippet.
-            # If `name` is empty, the `Server` model might raise an error or it might be handled by the database schema.
-            # Assuming `name` is validated elsewhere or is not expected to be empty.
             
             new_server = Server(
                 name=name.strip(),
@@ -37,7 +29,7 @@ class AlchemyService(BaseService):
             session.commit()
             return True
         except Exception as e:
-            logger.error(f"❌ Error al crear servidor: {e}")
+            logger.error(f"Error al crear servidor: {e}")
             session.rollback()
             return False
         finally:
@@ -84,23 +76,22 @@ class AlchemyService(BaseService):
         from app.domain.models import StoreAccount
         try:
             if not email:
-                logger.error("❌ Create Email: Empty email")
+                logger.error("Create Email: Empty email")
                 return False
             
             email = email.strip()
             existing = session.query(StoreAccount).filter_by(email=email).first()
             if existing:
-                logger.warning(f"⚠️ Create Email: Email '{email}' already exists.")
+                logger.warning(f"Create Email: Email '{email}' already exists.")
                 return False 
             
             new_store = StoreAccount(email=email)
             session.add(new_store)
-            session.add(new_store)
             session.commit()
-            logger.info(f"✅ Create Email: Created '{email}'")
+            logger.info(f"Create Email: Created '{email}'")
             return True
         except Exception as e:
-            logger.error(f"❌ Error al crear email: {e}")
+            logger.error(f"Error al crear email: {e}")
             session.rollback()
             return False
         finally:
@@ -111,41 +102,33 @@ class AlchemyService(BaseService):
         try:
             logger.info(f"Trying to create account: User={username}, Server={server_id}, Email={store_email}")
             if not username or not store_email: 
-                logger.error("❌ Create Account: Missing fields")
+                logger.error("Create Account: Missing fields")
                 return False
 
-            # Verificar si usuario ya existe (Globalmente, ya que el campo es unique=True)
             if session.query(GameAccount).filter_by(username=username).first():
-                logger.warning(f"⚠️ Create Account: Username '{username}' already exists globally.")
+                logger.warning(f"Create Account: Username '{username}' already exists globally.")
                 return False
             
             store = session.query(StoreAccount).filter_by(email=store_email).first()
             if not store:
-                logger.error(f"❌ Create Account: Store email '{store_email}' not found")
+                logger.error(f"Create Account: Store email '{store_email}' not found")
                 return False
             
             new_account = GameAccount(username=username, server_id=server_id, store_account_id=store.id)
             session.add(new_account)
             session.flush()
             
-            # Nombre base para personajes
             base_name = pj_name if pj_name else "PJ"
 
             for i in range(slots):
-                # Usamos nombre + sufijo para unicidad interna, pero en la UI mostraremos el base_name
-                # Ejemplo: Reynares_1, Reynares_2...
                 char_name_unique = f"{base_name}_{i+1}_{username}" 
-                # Agregamos username al final para garantizar unicidad global de nombres de PJ si es necesario?
-                # En Metin2 los nicks son unicos. Si el user pone "Reynares" en dos cuentas distintas,
-                # internamente debemos diferenciarlos.
-                
                 char = Character(name=char_name_unique, game_account_id=new_account.id, char_type=CharacterType.ALCHEMIST)
                 session.add(char)
             
             session.commit()
             return True
         except Exception as e:
-            logger.error(f"❌ Error al crear cuenta: {e}")
+            logger.error(f"Error al crear cuenta: {e}")
             session.rollback()
             return False
         finally:
@@ -158,51 +141,44 @@ class AlchemyService(BaseService):
             if not account:
                 return False
             
-            # Update Username
             if new_username and account.username != new_username:
                 account.username = new_username
             
-            # Update Email (Store)
             if new_email and account.store_account.email != new_email:
-                # Check if new store exists
                 store = session.query(StoreAccount).filter_by(email=new_email).first()
                 if not store:
                     store = StoreAccount(email=new_email)
                     session.add(store)
                     session.flush()
-                account.store_account = store # Reassign
+                account.store_account = store
             
-            # Update Slots (Characters)
-            current_chars = sorted(account.characters, key=lambda x: x.id) # Assuming ID order = creation order
+            current_chars = sorted(account.characters, key=lambda x: x.id)
             current_count = len(current_chars)
             
             if new_slots > current_count:
-                # Add chars
                 to_add = new_slots - current_count
                 for i in range(to_add):
                     idx = current_count + i + 1
                     char = Character(name=f"PJ {idx}", game_account_id=account.id, char_type=CharacterType.ALCHEMIST)
                     session.add(char)
             elif new_slots < current_count:
-                # Remove chars from end (Only if no data? For now forced)
                 to_remove = current_count - new_slots
-                # Remove the last ones
                 chars_to_delete = current_chars[-to_remove:]
                 for char in chars_to_delete:
-                    # Generic cleanup (cascade should handle daily_cors if set up, otherwise manual)
                     session.query(DailyCorActivity).filter_by(character_id=char.id).delete()
                     session.delete(char)
             
             session.commit()
             return True
         except Exception as e:
-            logger.error(f"❌ Error al actualizar cuenta: {e}")
+            logger.error(f"Error al actualizar cuenta: {e}")
             session.rollback()
             return False
         finally:
             session.close()
 
     # --- EVENTOS ALQUIMIA ---
+
     def create_alchemy_event(self, server_id, name, days):
         session = self.Session()
         from app.domain.models import AlchemyEvent
@@ -215,7 +191,7 @@ class AlchemyService(BaseService):
             )
             session.add(new_event)
             session.commit()
-            session.refresh(new_event) # Load data so it persists after session close
+            session.refresh(new_event)
             return new_event
         except Exception as e:
             logger.error(f"Error creating event: {e}")
@@ -233,17 +209,12 @@ class AlchemyService(BaseService):
             session.close()
 
     def get_alchemy_dashboard_data(self, server_id, store_email=None, event_id=None):
-        """
-        Retorna datos filtrados por EVENTO.
-        Si no hay evento seleccionado, retorna vacío.
-        Optimized.
-        """
+        """Retorna datos de cuentas filtrados por servidor y evento."""
         if not server_id or not event_id:
             return []
             
         session = self.Session()
         try:
-            # 1. Eager load Store -> Games -> Chars
             query = session.query(StoreAccount).options(
                 joinedload(StoreAccount.game_accounts).joinedload(GameAccount.characters)
             ).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
@@ -251,10 +222,8 @@ class AlchemyService(BaseService):
             if store_email:
                 query = query.filter(StoreAccount.email == store_email)
             
-            # Remove .unique() as it is not available on Query objects and not needed with .any() filter usually
             stores = query.all()
             
-            # 2. Collect char IDs
             all_char_ids = []
             for store in stores:
                 for acc in store.game_accounts:
@@ -262,7 +231,6 @@ class AlchemyService(BaseService):
                         for char in acc.characters:
                             all_char_ids.append(char.id)
 
-            # 3. Bulk fetch activities
             activity_map = {}
             if all_char_ids:
                 activities = session.query(DailyCorActivity).filter(
@@ -273,7 +241,6 @@ class AlchemyService(BaseService):
                     if act.character_id not in activity_map: activity_map[act.character_id] = {}
                     activity_map[act.character_id][act.day_index] = act.status_code
             
-            # 4. Construct result
             grouped_data = []
             for store in stores:
                 store_entry = {'store': store, 'accounts': []}
@@ -295,21 +262,17 @@ class AlchemyService(BaseService):
             return grouped_data
 
         except Exception as e:
-            logger.exception(f"❌ Error en Controller: {e}")
-            # removed traceback import/print
+            logger.exception(f"Error en get_alchemy_dashboard_data: {e}")
             return []
         finally:
             session.close()
 
     def update_daily_status(self, char_id, day_index, new_status, event_id):
-        """
-        Actualiza el estado para (char_id, event_id, day_index).
-        """
+        """Actualiza el estado para (char_id, event_id, day_index)."""
         if not event_id: return
 
         session = self.get_session()
         try:
-            # Buscar si existe
             activity = session.query(DailyCorActivity).filter_by(
                 character_id=char_id,
                 event_id=event_id,
@@ -328,20 +291,16 @@ class AlchemyService(BaseService):
                 session.add(new_activity)
             
             session.commit()
-            session.commit()
             logger.info(f"Updated Char {char_id} Event {event_id} Day {day_index} -> {new_status}")
             
         except Exception as e:
-            logger.error(f"❌ Error al guardar estado: {e}")
+            logger.error(f"Error al guardar estado: {e}")
             session.rollback()
         finally:
             session.close()
 
     def bulk_import_accounts(self, server_id, import_data):
-        """
-        Creates accounts and characters from imported data.
-        Supports Dict (Legacy) or List[Dict] (Table/Multi).
-        """
+        """Crea cuentas y personajes desde datos importados. Soporta Dict o List[Dict]."""
         if isinstance(import_data, list):
             success_count = 0
             errors = []
@@ -351,9 +310,9 @@ class AlchemyService(BaseService):
                 else: errors.append(msg)
             
             if success_count > 0:
-                return True, f"Importación masiva: {success_count} grupos procesados. {len(errors)} errores."
+                return True, f"Importacion masiva: {success_count} grupos procesados. {len(errors)} errores."
             else:
-                return False, f"Fallo en importación. Errores: {'; '.join(errors[:3])}..."
+                return False, f"Fallo en importacion. Errores: {'; '.join(errors[:3])}..."
 
         email = import_data.get("email")
         characters = import_data.get("characters", [])
@@ -361,9 +320,9 @@ class AlchemyService(BaseService):
         if not email or not characters:
             return False, "Datos incompletos en el archivo."
             
+        count = 0
         session = self.Session()
         try:
-            # 1. Ensure StoreAccount exists
             store = session.query(StoreAccount).filter_by(email=email).first()
             if not store:
                 store = StoreAccount(email=email)
@@ -373,17 +332,12 @@ class AlchemyService(BaseService):
             for char_data in characters:
                 pj_name = char_data['name']
                 slots = char_data.get('slots', 5)
+                account_name = char_data.get('account_name', pj_name)
                 
-                account_name = char_data.get('account_name')
-                if not account_name:
-                    username = pj_name
-                else:
-                    username = account_name
-                
-                existing_acc = session.query(GameAccount).filter_by(username=username).first()
+                existing_acc = session.query(GameAccount).filter_by(username=account_name).first()
                 if not existing_acc:
                     new_acc = GameAccount(
-                        username=username,
+                        username=account_name,
                         store_account_id=store.id,
                         server_id=server_id
                     )
@@ -411,28 +365,26 @@ class AlchemyService(BaseService):
                         count += 1
             
             session.commit()
-            return True, f"Importación exitosa: {count} personajes cargados para {email}."
+            return True, f"Importacion exitosa: {count} personajes cargados para {email}."
         except Exception as e:
             session.rollback()
             return False, str(e)
         finally:
             session.close()
+
     def get_next_pending_day(self, char_id, event_id):
-        """
-        Calculates the first day that is NOT completed (or the next one in sequence).
-        Returns integer day index (1-based).
-        """
+        """Calcula el primer dia pendiente (no completado) en secuencia."""
         return self._get_next_pending_day_generic(char_id, event_id, DailyCorActivity)
 
-    # --- CORDS MANAGEMENT ---
+    # --- CORDS ---
+
     def update_daily_cords(self, game_account_id, event_id, day_index, cords_count):
-        """Actualiza o crea el registro de cords para una cuenta en un día específico"""
+        """Actualiza o crea el registro de cords para una cuenta en un dia."""
         if not event_id or not game_account_id:
             return False
             
         session = self.Session()
         try:
-            # Buscar registro existente
             record = session.query(DailyCorRecord).filter_by(
                 game_account_id=game_account_id,
                 event_id=event_id,
@@ -451,7 +403,6 @@ class AlchemyService(BaseService):
                 session.add(new_record)
             
             session.commit()
-            session.commit()
             logger.info(f"Cords actualizado: Account {game_account_id}, Day {day_index} -> {cords_count}")
             return True
         except Exception as e:
@@ -462,7 +413,7 @@ class AlchemyService(BaseService):
             session.close()
 
     def get_daily_cords(self, game_account_id, event_id):
-        """Obtiene todos los registros de cords de una cuenta para un evento"""
+        """Obtiene registros de cords de una cuenta para un evento."""
         if not event_id or not game_account_id:
             return {}
             
@@ -475,13 +426,13 @@ class AlchemyService(BaseService):
             
             return {record.day_index: record.cords_count for record in records}
         except Exception as e:
-            logger.error(f"❌ Error al obtener cords: {e}")
+            logger.error(f"Error al obtener cords: {e}")
             return {}
         finally:
             session.close()
 
     def get_total_cords(self, game_account_id, event_id):
-        """Calcula el total de cords acumulados de una cuenta en un evento"""
+        """Calcula el total de cords acumulados de una cuenta en un evento."""
         if not event_id or not game_account_id:
             return 0
             
@@ -494,19 +445,18 @@ class AlchemyService(BaseService):
             
             return result or 0
         except Exception as e:
-            logger.error(f"❌ Error al calcular total cords: {e}")
+            logger.error(f"Error al calcular total cords: {e}")
             return 0
         finally:
             session.close()
 
     def get_event_cords_summary(self, event_id):
-        """Obtiene resumen de cords de todas las cuentas para un evento"""
+        """Obtiene resumen de cords de todas las cuentas para un evento."""
         if not event_id:
             return {}
             
         session = self.Session()
         try:
-            # Obtener totales por cuenta
             results = session.query(
                 DailyCorRecord.game_account_id,
                 func.sum(DailyCorRecord.cords_count).label('total')
@@ -516,18 +466,17 @@ class AlchemyService(BaseService):
             
             return {acc_id: total for acc_id, total in results}
         except Exception as e:
-            logger.error(f"❌ Error al obtener resumen de cords: {e}")
+            logger.error(f"Error al obtener resumen de cords: {e}")
             return {}
         finally:
             session.close()
 
     def get_all_daily_cords(self, event_id):
-        """Obtiene todos los registros diarios de cords para un evento, agrupados por cuenta"""
+        """Obtiene todos los registros diarios de cords para un evento, agrupados por cuenta."""
         if not event_id: return {}
         session = self.Session()
         try:
             records = session.query(DailyCorRecord).filter_by(event_id=event_id).all()
-            # Convert to dict of dicts: {acc_id: {day: count}}
             result = {}
             for r in records:
                 if r.game_account_id not in result:
@@ -535,14 +484,15 @@ class AlchemyService(BaseService):
                 result[r.game_account_id][r.day_index] = r.cords_count
             return result
         except Exception as e:
-            logger.error(f"❌ Error al obtener todos los cords: {e}")
+            logger.error(f"Error al obtener todos los cords: {e}")
             return {}
         finally:
             session.close()
 
-    # --- ALCHEMY MANAGEMENT ---
+    # --- ALCHEMY COUNTERS ---
+
     def get_alchemy_counters(self, event_id):
-        """Obtiene todos los contadores de alquimia para un evento"""
+        """Obtiene todos los contadores de alquimia para un evento."""
         if not event_id:
             return {}
             
@@ -551,13 +501,13 @@ class AlchemyService(BaseService):
             counters = session.query(AlchemyCounter).filter_by(event_id=event_id).all()
             return {counter.alchemy_type: counter.count for counter in counters}
         except Exception as e:
-            logger.error(f"❌ Error al obtener contadores: {e}")
+            logger.error(f"Error al obtener contadores: {e}")
             return {}
         finally:
             session.close()
 
     def update_alchemy_count(self, event_id, alchemy_type, count):
-        """Actualiza el contador de un tipo de alquimia"""
+        """Actualiza el contador de un tipo de alquimia."""
         if not event_id or not alchemy_type:
             return False
             
@@ -579,18 +529,17 @@ class AlchemyService(BaseService):
                 session.add(new_counter)
             
             session.commit()
-            session.commit()
-            logger.info(f"✅ Alquimia actualizada: {alchemy_type} -> {count}")
+            logger.info(f"Alquimia actualizada: {alchemy_type} -> {count}")
             return True
         except Exception as e:
-            logger.error(f"❌ Error al actualizar alquimia: {e}")
+            logger.error(f"Error al actualizar alquimia: {e}")
             session.rollback()
             return False
         finally:
             session.close()
 
     def increment_alchemy(self, event_id, alchemy_type, amount=1):
-        """Incrementa el contador de un tipo de alquimia"""
+        """Incrementa el contador de un tipo de alquimia."""
         if not event_id or not alchemy_type:
             return False
             
@@ -614,9 +563,8 @@ class AlchemyService(BaseService):
             session.commit()
             return True
         except Exception as e:
-            logger.error(f"❌ Error al incrementar alquimia: {e}")
+            logger.error(f"Error al incrementar alquimia: {e}")
             session.rollback()
             return False
         finally:
             session.close()
-

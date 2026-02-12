@@ -6,16 +6,16 @@ from sqlalchemy import create_engine
 import sys
 
 def reset_db():
-    logger.info("🔄 Conectando a la base de datos...")
+    logger.info("Conectando a la base de datos...")
     engine = create_engine(Config.get_db_url())
     
-    logger.warning("⚠ Eliminando tablas existentes...")
+    logger.warning("Eliminando tablas existentes...")
     Base.metadata.drop_all(engine)
     
-    logger.info("✨ Creando tablas nuevas...")
+    logger.info("Creando tablas nuevas...")
     Base.metadata.create_all(engine)
     
-    logger.info("✅ Base de datos reseteada correctamente.")
+    logger.info("Base de datos reseteada correctamente.")
 
 if __name__ == "__main__":
     reset_db()

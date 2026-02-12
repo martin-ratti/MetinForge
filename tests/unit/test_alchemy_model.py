@@ -33,7 +33,7 @@ def test_alchemy_model_structure(mock_store_data):
     # Store Index
     store_index = model.index(0, 0)
     assert store_index.isValid()
-    assert model.data(store_index, Qt.ItemDataRole.DisplayRole) == "📧 test@store.com"
+    assert model.data(store_index, Qt.ItemDataRole.DisplayRole) == "test@store.com"
     assert model.data(store_index, AlchemyModel.TypeRole) == "store"
     
     # Account level

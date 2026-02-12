@@ -105,7 +105,7 @@ def main():
         with open(style_path, "r") as f:
             app.setStyleSheet(f.read())
     else:
-        logger.warning("⚠️ No se encontró el estilo Metin2, usando default.")
+        logger.warning("No se encontro el estilo Metin2, usando default.")
     
     window = MainWindow()
     window.show()

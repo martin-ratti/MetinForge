@@ -7,6 +7,7 @@ from app.presentation.models.fishing_model import FishingModel
 from app.presentation.delegates.fishing_grid_delegate import FishingGridDelegate
 from app.presentation.utils.feedback import FeedbackManager
 from app.utils.shortcuts import register_shortcuts
+from app.utils.logger import logger
 import datetime
 
 class FishingView(QWidget):
@@ -19,7 +20,6 @@ class FishingView(QWidget):
         self.controller = FishingService()
         self.feedback = FeedbackManager.instance()
         self.current_year = datetime.date.today().year
-        
         self.all_data = [] 
         
         self.init_ui()
@@ -32,7 +32,7 @@ class FishingView(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # --- LEFT PANEL ---
+        # Panel izquierdo
         left_widget = QWidget()
         left_layout = QVBoxLayout()
         left_widget.setLayout(left_layout)
@@ -61,9 +61,7 @@ class FishingView(QWidget):
         header_left.addWidget(left_title, 1)
         left_layout.addLayout(header_left)
         
-        # Stats / Import Wrapper
         stats_layout = QVBoxLayout()
-        # ... stats widgets can go here ...
         
         btn_import = QPushButton("Importar Excel")
         btn_import.setStyleSheet("""
@@ -83,13 +81,12 @@ class FishingView(QWidget):
         stats_layout.addStretch()
         left_layout.addLayout(stats_layout)
         
-        # --- RIGHT PANEL ---
+        # Panel derecho
         right_widget = QWidget()
         right_layout = QVBoxLayout()
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_widget.setLayout(right_layout)
         
-        # Header Right
         top_bar = QHBoxLayout()
         lbl_server = QLabel(f"{self.server_name.title()}")
         lbl_server.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37; background-color: #263238; border: 1px solid #d4af37; border-radius: 4px; padding: 4px 8px;")
@@ -114,7 +111,7 @@ class FishingView(QWidget):
         
         right_layout.addLayout(top_bar)
         
-        # --- QTREEVIEW ---
+        # TreeView
         self.tree_view = QTreeView()
         self.tree_view.setAlternatingRowColors(False)
         self.tree_view.setStyleSheet("""
@@ -128,7 +125,7 @@ class FishingView(QWidget):
             QTreeView::item {
                 border-bottom: 1px solid #333;
                 padding: 0px;
-                height: 46px; /* Increased for Larger Grid */
+                height: 46px;
             }
             QTreeView::item:selected {
                 background-color: #2d2d1b;
@@ -149,15 +146,12 @@ class FishingView(QWidget):
         self.tree_view.setRootIsDecorated(True)
         self.tree_view.installEventFilter(self)
         
-        # Init Model
         self.model = FishingModel([], year=self.current_year, controller=self.controller)
         self.tree_view.setModel(self.model)
         
-        # Init Delegate
         self.grid_delegate = FishingGridDelegate(self.tree_view, controller=self.controller, model=self.model)
         self.tree_view.setItemDelegateForColumn(2, self.grid_delegate)
         
-        # Click Listener
         try: self.tree_view.clicked.disconnect(self.on_tree_clicked)
         except: pass
         self.tree_view.clicked.connect(self.on_tree_clicked)
@@ -181,7 +175,7 @@ class FishingView(QWidget):
         if source == self.tree_view and event.type() == QEvent.Type.KeyPress:
              key = event.text()
              if key in ['1', '2', '3']:
-                 status_map = {'1': 1, '2': -1, '3': 0} # 0 = Reset/Skip
+                 status_map = {'1': 1, '2': -1, '3': 0}
                  if key in status_map:
                      self.handle_burst_action(status_map[key])
                      return True
@@ -206,23 +200,16 @@ class FishingView(QWidget):
         self.tree_view.clearSelection()
 
     def handle_burst_action(self, status):
-        """
-        Burst Mode: Update current/next status instantly.
-        Status: 1=OK, -1=Fail, 0=Reset/Skip
-        """
-        from app.utils.logger import logger
+        """Modo Burst: actualiza estado de pesca. 1=OK, -1=Fail, 0=Reset."""
         logger.info(f"Burst Action Triggered: Status {status}")
 
         selection = self.tree_view.selectionModel()
         indexes = selection.selectedIndexes()
         
-        # Filter for account rows (col 0 logic)
         account_indexes = [idx for idx in indexes if idx.column() == 2 and idx.parent().isValid()]
         
         if not account_indexes:
-            # Maybe selected col 0?
             account_indexes = [idx for idx in indexes if idx.column() == 0 and idx.parent().isValid()]
-            # Map to col 2 for data update
             model = self.model
             account_indexes = [model.index(idx.row(), 2, idx.parent()) for idx in account_indexes]
 
@@ -243,10 +230,9 @@ class FishingView(QWidget):
             if char:
                 target_m, target_w = None, None
                 
-                if status == 0: # Reset/Undo logic
-                     # Find last filled week to clear it
+                if status == 0:
                      target_m, target_w = self.controller.get_last_filled_week(char.id, self.current_year)
-                else: # Fill logic (status 1 or -1)
+                else:
                     target_m, target_w = self.controller.get_next_pending_week(char.id, self.current_year)
                 
                 if target_m and target_w:
@@ -254,7 +240,6 @@ class FishingView(QWidget):
                     self.model.update_fishing_status(index, target_m, target_w, status)
 
         if len(account_indexes) == 1 and status != 0:
-             # Only auto-advance if not undoing
              self.move_selection_next()
 
     def move_selection_next(self):
@@ -297,15 +282,8 @@ class FishingView(QWidget):
         file_path, _ = QFileDialog.getOpenFileName(self, "Seleccionar Excel", "", "Excel Files (*.xlsx *.xls)")
         if file_path:
             try:
-                # Assuming FishingService has import capabilities or we add it now
-                # Check if controller has import_fishing_data or similar
-                # If not, we might need to implement it in Service first.
-                # For now, let's assume specific logic or use a generic importer.
-                # Actually, the user likely used the generic "Import Excel" logic before.
-                # Let's try to call a service method.
-                
                 count = self.controller.import_fishing_data_from_excel(file_path, self.server_id)
-                QMessageBox.information(self, "Importación", f"Se importaron datos para {count} cuentas.")
+                QMessageBox.information(self, "Importacion", f"Se importaron datos para {count} cuentas.")
                 self.load_data()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error al importar Excel: {str(e)}")
@@ -321,13 +299,11 @@ class FishingView(QWidget):
         self.model.set_data(filtered_data, self.current_year)
         self.tree_view.expandAll()
         
-        # Span Store Headers
         for row in range(self.model.rowCount()):
              self.tree_view.setFirstColumnSpanned(row, QModelIndex(), True)
 
-        # Configure Header
         header = self.tree_view.header()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents) # Cuenta
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents) # Pescador
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents) # Grid
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setStretchLastSection(False)
