@@ -6,10 +6,9 @@ from app.presentation.models.fishing_model import FishingModel
 class FishingGridDelegate(QStyledItemDelegate):
     """Delegate para renderizar la grilla anual de pesca (12 Meses x 4 Semanas) en una celda."""
     
-    BOX_SIZE = 16
-    BG_BOX_SIZE = 22
-    BOX_SPACING = 6
-    MONTH_SPACING = 16
+    CELL_SIZE = 18
+    SPACING = 2
+    MONTH_SPACING = 6
     
     def __init__(self, parent=None, controller=None, model=None):
         super().__init__(parent)
@@ -17,91 +16,117 @@ class FishingGridDelegate(QStyledItemDelegate):
         self.model = model
         
         self.color_pending = QColor("#2b2b2b")
-        self.color_success = QColor("#4fc3f7")
-        self.color_fail = QColor("#ef5350")
+        self.color_success = QColor("#d4af37")  # Gold (like tombola)
+        self.color_fail = QColor("#550000")     # Dark Red (like tombola)
         self.border_pen = QPen(QColor("#5d4d2b"))
 
     def paint(self, painter, option, index):
         if not index.isValid():
             return
 
-        data = index.data(FishingModel.GridDataRole)
-        if not data: data = {}
+        item_type = index.data(FishingModel.TypeRole)
         
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        rect = option.rect
-        y_center = rect.y() + rect.height() // 2
-        x_offset = rect.x() + 10
-        
-        for m in range(1, 13):
-            for w in range(1, 5):
-                status = data.get(f"{m}_{w}", 0)
-                
-                slot_rect = QRect(x_offset, y_center - self.BOX_SIZE // 2, self.BOX_SIZE, self.BOX_SIZE)
-                
-                color = QColor("#2b2b2b")
-                if status == 1: color = QColor("#00bcd4")
-                elif status == -1: color = QColor("#f44336")
-                
-                painter.fillRect(slot_rect, color)
-                
-                painter.setPen(QColor("#555555"))
-                painter.drawRect(slot_rect)
-                
-                if w == 1:
-                     painter.setPen(QColor("#808080"))
-                     font = painter.font(); font.setPointSize(8); painter.setFont(font)
-                     painter.drawText(QRect(x_offset, rect.y() + 2, self.BOX_SIZE, 12), Qt.AlignmentFlag.AlignCenter, str(m))
+        # Store header — draw month numbers
+        if item_type == "store" and index.column() == 2:
+            painter.save()
+            rect = option.rect
+            painter.fillRect(rect, QColor("#102027"))
+            
+            x = rect.x()
+            y_center = rect.y() + (rect.height() - self.CELL_SIZE) // 2
+            
+            painter.setPen(QColor("#a0a0a0"))
+            font = painter.font()
+            font.setBold(True)
+            font.setPointSize(8)
+            painter.setFont(font)
+            
+            for m in range(1, 13):
+                month_width = 4 * (self.CELL_SIZE + self.SPACING)
+                month_rect = QRect(x, y_center, month_width, self.CELL_SIZE)
+                painter.drawText(month_rect, Qt.AlignmentFlag.AlignCenter, str(m))
+                x += month_width + self.MONTH_SPACING
+            
+            painter.restore()
+            return
 
-                x_offset += self.BOX_SIZE + self.BOX_SPACING
+        # Account row — draw weekly grid
+        if item_type == "account" and index.column() == 2:
+            data = index.data(FishingModel.GridDataRole)
+            if not data: data = {}
             
-            x_offset += (self.MONTH_SPACING - self.BOX_SPACING)
+            painter.save()
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             
-        painter.restore()
+            rect = option.rect
+            y_center = rect.y() + (rect.height() - self.CELL_SIZE) // 2
+            x = rect.x()
+            
+            for m in range(1, 13):
+                for w in range(1, 5):
+                    status = data.get(f"{m}_{w}", 0)
+                    slot_rect = QRect(x, y_center, self.CELL_SIZE, self.CELL_SIZE)
+                    
+                    if status == 1:
+                        painter.setBrush(QBrush(self.color_success))
+                        painter.setPen(self.border_pen)
+                        painter.drawRect(slot_rect)
+                        painter.setPen(QPen(Qt.GlobalColor.black))
+                        painter.drawText(slot_rect, Qt.AlignmentFlag.AlignCenter, "✓")
+                    elif status == -1:
+                        painter.setBrush(QBrush(self.color_fail))
+                        painter.setPen(self.border_pen)
+                        painter.drawRect(slot_rect)
+                        painter.setPen(QPen(QColor("#ffcccc")))
+                        painter.drawText(slot_rect, Qt.AlignmentFlag.AlignCenter, "✕")
+                    else:
+                        painter.setBrush(QBrush(self.color_pending))
+                        painter.setPen(self.border_pen)
+                        painter.drawRect(slot_rect)
+                        # Small week number in pending cells
+                        painter.setPen(QColor("#707070"))
+                        f = painter.font(); f.setPointSize(7); painter.setFont(f)
+                        painter.drawText(slot_rect, Qt.AlignmentFlag.AlignCenter, str(w))
+                    
+                    x += self.CELL_SIZE + self.SPACING
+                
+                x += self.MONTH_SPACING
+                
+            painter.restore()
+            return
+        
+        super().paint(painter, option, index)
+
 
     def sizeHint(self, option, index):
-        month_width = (4 * (self.BOX_SIZE + self.BOX_SPACING))
-        total_width = (month_width * 12) + (11 * (self.MONTH_SPACING - self.BOX_SPACING)) + 40
-        return QSize(total_width, 46)
+        if index.column() == 2:
+            month_width = 4 * (self.CELL_SIZE + self.SPACING)
+            total_width = (month_width * 12) + (11 * self.MONTH_SPACING)
+            return QSize(total_width, self.CELL_SIZE + 4)
+        return super().sizeHint(option, index)
 
     def editorEvent(self, event, model, option, index):
         """Maneja clics en celdas de la grilla de pesca."""
         if event.type() == event.Type.MouseButtonRelease:
             if index.column() == 2 and index.data(FishingModel.TypeRole) == "account":
                 click_x = event.pos().x()
-                click_y = event.pos().y()
                 rect = option.rect
                 
-                start_x = rect.x() + 4
-                block_height = (self.BOX_SIZE * 2) + self.BOX_SPACING
-                start_y = rect.y() + (rect.height() - block_height) // 2
+                cell_total = self.CELL_SIZE + self.SPACING
+                month_width = 4 * cell_total
+                month_block = month_width + self.MONTH_SPACING
                 
-                month_block_width = (self.BOX_SIZE*2 + self.BOX_SPACING) + self.MONTH_SPACING
-                rel_x = click_x - start_x
-                
+                rel_x = click_x - rect.x()
                 if rel_x < 0: return False
                 
-                m_idx = rel_x // month_block_width
+                m_idx = int(rel_x // month_block)
                 month = m_idx + 1
-                
                 if not (1 <= month <= 12): return False
                 
-                block_x_start = start_x + (m_idx * month_block_width)
-                local_x = click_x - block_x_start
-                local_y = click_y - start_y
-                
-                col = local_x // (self.BOX_SIZE + self.BOX_SPACING)
-                row = local_y // (self.BOX_SIZE + self.BOX_SPACING)
-                
-                week = 0
-                if row == 0 and col == 0: week = 1
-                elif row == 0 and col == 1: week = 2
-                elif row == 1 and col == 0: week = 3
-                elif row == 1 and col == 1: week = 4
-                
-                if week == 0: return False
+                local_x = rel_x - (m_idx * month_block)
+                w_idx = int(local_x // cell_total)
+                week = w_idx + 1
+                if not (1 <= week <= 4): return False
                 
                 account = index.data(FishingModel.RawDataRole)
                 if not account: return False

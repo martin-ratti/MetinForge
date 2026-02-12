@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, Enum, DateTime
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, Enum, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .base import Base
 import datetime
@@ -34,9 +34,14 @@ class GameAccount(Base):
     __tablename__ = 'game_accounts'
     
     id = Column(Integer, primary_key=True)
-    username = Column(String(50), unique=True, nullable=False)
+    username = Column(String(50), nullable=False) # Removed unique=True
     store_account_id = Column(Integer, ForeignKey('store_accounts.id'))
     server_id = Column(Integer, ForeignKey('servers.id'))
+    
+    __table_args__ = (
+        UniqueConstraint('username', 'server_id', name='uq_game_account_username_server'),
+    )
+
     
     store_account = relationship("StoreAccount", back_populates="game_accounts")
     server = relationship("Server", back_populates="game_accounts")

@@ -116,7 +116,12 @@ class FishingService(BaseService):
                 account_name = char_data.get('account_name')
                 username = account_name if account_name else pj_name
                 
-                existing_acc = session.query(GameAccount).filter_by(username=username).first()
+                exists_query = session.query(GameAccount).filter_by(
+                    username=username,
+                    server_id=server_id
+                )
+                existing_acc = exists_query.first()
+
                 if not existing_acc:
                     new_acc = GameAccount(
                         username=username,

@@ -118,7 +118,7 @@ class AlchemyService(BaseService):
                 logger.error("Create Account: Missing fields")
                 return False
 
-            if session.query(GameAccount).filter_by(username=username).first():
+            if session.query(GameAccount).filter_by(username=username, server_id=server_id).first():
                 logger.warning(f"Create Account: Username '{username}' already exists globally.")
                 return False
             
@@ -347,7 +347,7 @@ class AlchemyService(BaseService):
                 slots = char_data.get('slots', 5)
                 account_name = char_data.get('account_name', pj_name)
                 
-                existing_acc = session.query(GameAccount).filter_by(username=account_name).first()
+                existing_acc = session.query(GameAccount).filter_by(username=account_name, server_id=server_id).first()
                 if not existing_acc:
                     new_acc = GameAccount(
                         username=account_name,

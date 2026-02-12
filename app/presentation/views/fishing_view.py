@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTreeView, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTreeView, QFrame,
                              QSplitter, QPushButton, QComboBox, QHeaderView, QAbstractItemView, QMessageBox, QInputDialog)
 from PyQt6.QtGui import QStandardItemModel
 from PyQt6.QtCore import Qt, QModelIndex, QEvent, pyqtSignal, QItemSelectionModel
@@ -38,6 +38,8 @@ class FishingView(QWidget):
         left_widget.setLayout(left_layout)
         
         header_left = QHBoxLayout()
+        header_left.setSpacing(10)
+        
         btn_back = QPushButton("← Volver")
         btn_back.setFixedWidth(100)
         btn_back.setFixedHeight(30)
@@ -53,7 +55,7 @@ class FishingView(QWidget):
             QPushButton:hover { background-color: #800000; }
         """)
         
-        left_title = QLabel("Pesca Anual")
+        left_title = QLabel(f"{self.server_name}")
         left_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #d4af37;")
         left_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
@@ -61,25 +63,64 @@ class FishingView(QWidget):
         header_left.addWidget(left_title, 1)
         left_layout.addLayout(header_left)
         
-        stats_layout = QVBoxLayout()
+        # ── Resumen de progreso ────────────────
+        self.progress_frame = QFrame()
+        self.progress_frame.setStyleSheet("""
+            QFrame {
+                background-color: #102027;
+                border: 1px solid #37474f;
+                border-radius: 8px;
+            }
+            QLabel {
+                border: none;
+                background: transparent;
+            }
+        """)
+        progress_layout = QVBoxLayout(self.progress_frame)
+        progress_layout.setContentsMargins(12, 12, 12, 12)
+        progress_layout.setSpacing(8)
         
-        btn_import = QPushButton("Importar Excel")
+        lbl_progress_title = QLabel("📊 Progreso Anual")
+        lbl_progress_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37;")
+        lbl_progress_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        progress_layout.addWidget(lbl_progress_title)
+        
+        self.lbl_total_accounts = QLabel("Cuentas: —")
+        self.lbl_total_accounts.setStyleSheet("font-size: 12px; color: #b0bec5;")
+        progress_layout.addWidget(self.lbl_total_accounts)
+        
+        self.lbl_completed = QLabel("✓ Completadas: —")
+        self.lbl_completed.setStyleSheet("font-size: 12px; color: #4fc3f7;")
+        progress_layout.addWidget(self.lbl_completed)
+        
+        self.lbl_failed = QLabel("✕ Fallidas: —")
+        self.lbl_failed.setStyleSheet("font-size: 12px; color: #ef5350;")
+        progress_layout.addWidget(self.lbl_failed)
+        
+        self.lbl_pending = QLabel("◻ Pendientes: —")
+        self.lbl_pending.setStyleSheet("font-size: 12px; color: #78909c;")
+        progress_layout.addWidget(self.lbl_pending)
+        
+        left_layout.addWidget(self.progress_frame)
+        
+        # ── Botón importar ─────────────────────
+        btn_import = QPushButton("📥 Importar Excel")
         btn_import.setStyleSheet("""
             QPushButton {
                 background-color: #2e7d32;
                 color: white;
                 border: 1px solid #1b5e20;
                 border-radius: 4px;
-                padding: 6px;
+                padding: 8px;
                 font-weight: bold;
+                font-size: 13px;
             }
             QPushButton:hover { background-color: #388e3c; }
         """)
         btn_import.clicked.connect(self.import_excel)
-        stats_layout.addWidget(btn_import)
+        left_layout.addWidget(btn_import)
         
-        stats_layout.addStretch()
-        left_layout.addLayout(stats_layout)
+        left_layout.addStretch()
         
         # Panel derecho
         right_widget = QWidget()
@@ -87,29 +128,29 @@ class FishingView(QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_widget.setLayout(right_layout)
         
-        top_bar = QHBoxLayout()
+        header_right = QHBoxLayout()
+        header_right.setSpacing(10)
+        
         lbl_server = QLabel(f"{self.server_name.title()}")
         lbl_server.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37; background-color: #263238; border: 1px solid #d4af37; border-radius: 4px; padding: 4px 8px;")
+        header_right.addWidget(lbl_server)
+        header_right.addStretch()
+        
+        self.combo_store = QComboBox()
+        self.combo_store.setMinimumWidth(150)
+        self.combo_store.setStyleSheet("padding: 5px; background-color: #263238; color: white; border: 1px solid #546e7a; border-radius: 4px;")
+        self.combo_store.currentIndexChanged.connect(self.on_store_filter_changed)
+        header_right.addWidget(self.combo_store)
         
         self.combo_year = QComboBox()
         for y in range(2025, 2031):
             self.combo_year.addItem(str(y))
         self.combo_year.setCurrentText(str(self.current_year))
-        self.combo_year.setStyleSheet("padding: 5px; background-color: #37474f; color: white;")
+        self.combo_year.setStyleSheet("padding: 5px; background-color: #37474f; color: white; border: 1px solid #546e7a; border-radius: 4px;")
         self.combo_year.currentIndexChanged.connect(self.on_year_changed)
+        header_right.addWidget(self.combo_year)
         
-        self.combo_store = QComboBox()
-        self.combo_store.setMinimumWidth(150)
-        self.combo_store.setStyleSheet("padding: 5px; background-color: #37474f; color: white; border: 1px solid #546e7a; border-radius: 4px;")
-        self.combo_store.currentIndexChanged.connect(self.on_store_filter_changed)
-        
-        top_bar.addWidget(lbl_server)
-        top_bar.addStretch()
-        top_bar.addWidget(self.combo_store)
-        top_bar.addWidget(QLabel("Año:"))
-        top_bar.addWidget(self.combo_year)
-        
-        right_layout.addLayout(top_bar)
+        right_layout.addLayout(header_right)
         
         # TreeView
         self.tree_view = QTreeView()
@@ -125,7 +166,7 @@ class FishingView(QWidget):
             QTreeView::item {
                 border-bottom: 1px solid #333;
                 padding: 0px;
-                height: 46px;
+                height: 24px;
             }
             QTreeView::item:selected {
                 background-color: #2d2d1b;
@@ -307,3 +348,29 @@ class FishingView(QWidget):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setStretchLastSection(False)
+        
+        self.update_progress_stats()
+
+    def update_progress_stats(self):
+        """Calcula y actualiza las estadísticas de progreso en el panel izquierdo."""
+        total_accounts = 0
+        completed = 0
+        failed = 0
+        pending = 0
+        
+        for store_data in self.all_data:
+            accounts = store_data.get('accounts', [])
+            for acc in accounts:
+                total_accounts += 1
+                activity = getattr(acc, 'fishing_activity_map', {})
+                for m in range(1, 13):
+                    for w in range(1, 5):
+                        status = activity.get(f"{m}_{w}", 0)
+                        if status == 1: completed += 1
+                        elif status == -1: failed += 1
+                        else: pending += 1
+        
+        self.lbl_total_accounts.setText(f"Cuentas: {total_accounts}")
+        self.lbl_completed.setText(f"✓ Completadas: {completed}")
+        self.lbl_failed.setText(f"✕ Fallidas: {failed}")
+        self.lbl_pending.setText(f"◻ Pendientes: {pending}")
