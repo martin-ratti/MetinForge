@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+*.xlsx
+*.log
+docker-compose.override.yml
+.git/
+.vscode/
+.idea/
+dist/
+build/
+*.spec

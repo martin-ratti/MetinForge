@@ -9,8 +9,8 @@ def setup_logger(name="MetinForge"):
     if not logger.handlers:
         logger.setLevel(logging.INFO)
         formatter = logging.Formatter(
-            '[%(asctime)s] | %(levelname)-8s | %(message)s',
-            datefmt='%H:%M:%S'
+            '%(asctime)s | %(levelname)-8s | [%(name)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
         )
         
         ch = logging.StreamHandler(sys.stdout)
@@ -24,9 +24,9 @@ def setup_logger(name="MetinForge"):
             fh.setFormatter(formatter)
             logger.addHandler(fh)
             
-            fh.stream.write("\n" + "=" * 80 + "\n")
-            fh.stream.write(f"  SESSION STARTED: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            fh.stream.write("=" * 80 + "\n\n")
+            fh.stream.write("\n" + "█" * 80 + "\n")
+            fh.stream.write(f"  METINFORGE SESSION STARTED: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            fh.stream.write("█" * 80 + "\n\n")
             
         except Exception as e:
             print(f"Failed to setup file logging: {e}")

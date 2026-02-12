@@ -53,24 +53,28 @@ QScrollArea {
 
 /* === BUTTONS === */
 QPushButton {
-    background-color: #2b2b2b; /* Armor Gray */
-    color: #f0c674; /* Soft Gold */
-    border: 1px solid #5d4d2b; /* Antique Bronze */
-    border-radius: 3px;
-    padding: 6px 16px;
+    background-color: #2b2b2b;
+    color: #f0c674;
+    border: 1px solid #5d4d2b;
+    border-radius: 4px;
+    padding: 8px 20px;
     font-weight: bold;
-    min-height: 24px;
+    min-height: 28px;
 }
 
 QPushButton:hover {
-    background-color: #3e3e3e; /* Steel Gray - Lighten */
-    border-color: #d4af37; /* Bright Gold Border */
+    background-color: #3e3e3e;
+    border-color: #ffd700;
     color: #ffffff;
+    /* Simulate glow */
+    border: 1px solid #d4af37;
 }
 
 QPushButton:pressed {
-    background-color: #1a1a1a; /* Darker Press */
+    background-color: #1a1a1a;
     border-color: #8a7224;
+    padding-top: 9px;
+    padding-left: 21px;
 }
 
 QPushButton:disabled {

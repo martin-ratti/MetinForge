@@ -8,4 +8,6 @@ pytest==9.0.2
 pytest-qt==4.5.0
 pytest-cov==7.0.0
 openpyxl==3.1.5
-cryptography==42.0.5
+cryptography==46.0.5
+pip-audit==2.8.0
+Pillow==12.1.1

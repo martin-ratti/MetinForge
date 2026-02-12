@@ -1,0 +1,20 @@
+services:
+  metinforge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: metinforge_app
+    environment:
+      - DISPLAY=host.docker.internal:0.0
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - ./app/data:/app/data
+      - ./app/logs:/app/logs
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    restart: unless-stopped
+    # Privileged or specific capabilities might be needed for some X11 setups
+    # privileged: true 
+
+volumes:
+  metin_data:
+  metin_logs:
