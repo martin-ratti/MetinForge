@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.utils.config import Config
+import contextlib
 
 class BaseService:
     """Servicio base con factory de sesiones y utilidades compartidas."""
@@ -15,13 +16,31 @@ class BaseService:
     def _init_engine(cls):
         if cls._engine is None:
             cls._engine = create_engine(Config.get_db_url(), pool_recycle=3600)
-            cls._SessionFactory = sessionmaker(bind=cls._engine)
+            cls._SessionFactory = sessionmaker(bind=cls._engine, expire_on_commit=False)
+
+    @contextlib.contextmanager
+    def session_scope(self):
+        """Provide a transactional scope around a series of operations."""
+        session = self.get_session()
+        try:
+            yield session
+            session.flush() # Ensure changes are reached by current transaction queries
+            if not self._injected_session:
+                session.commit()
+        except Exception:
+            if not self._injected_session:
+                session.rollback()
+            raise
+        finally:
+            if not self._injected_session:
+                session.close()
 
     def get_session(self):
         if self._injected_session:
             return self._injected_session
         self._init_engine()
         return self._SessionFactory()
+
 
     def _get_next_pending_day_generic(self, char_id, event_id, activity_model, max_days=31):
         """Retorna el proximo dia pendiente (status == 0 o sin registro)."""

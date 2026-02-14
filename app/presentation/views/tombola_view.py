@@ -9,16 +9,17 @@ from app.presentation.models.tombola_model import TombolaModel
 from app.presentation.delegates.tombola_grid_delegate import TombolaGridDelegate
 from app.utils.feedback import FeedbackManager
 from app.utils.shortcuts import register_shortcuts
+from app.presentation.styles import AppStyles
 import datetime
 
 class TombolaView(QWidget):
     backRequested = pyqtSignal()
 
-    def __init__(self, server_id, server_name):
+    def __init__(self, server_id, server_name, controller=None):
         super().__init__()
         self.server_id = server_id
         self.server_name = server_name
-        self.controller = TombolaService()
+        self.controller = controller if controller else TombolaService()
         self.feedback = FeedbackManager.instance()
         
         self.events_cache = []
@@ -50,19 +51,10 @@ class TombolaView(QWidget):
         btn_back.setFixedWidth(100)
         btn_back.setFixedHeight(30)
         btn_back.clicked.connect(self.backRequested.emit)
-        btn_back.setStyleSheet("""
-            QPushButton {
-                background-color: #550000;
-                border: 2px solid #800000;
-                color: #ffcccc;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover { background-color: #800000; }
-        """)
+        btn_back.setStyleSheet(AppStyles.BUTTON_BACK)
         
         left_title = QLabel(f"{self.server_name}")
-        left_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #d4af37;")
+        left_title.setStyleSheet(AppStyles.LABEL_TITLE)
         left_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         header_left.addWidget(btn_back)
@@ -83,25 +75,25 @@ class TombolaView(QWidget):
         header_right.setSpacing(10)
         
         lbl_server = QLabel(f"{self.server_name.title()}")
-        lbl_server.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37; background-color: #263238; border: 1px solid #d4af37; border-radius: 4px; padding: 4px 8px;")
+        lbl_server.setStyleSheet(AppStyles.LABEL_BADGE)
         header_right.addWidget(lbl_server)
         header_right.addStretch()
         
         self.combo_store = QComboBox()
         self.combo_store.setMinimumWidth(150)
-        self.combo_store.setStyleSheet("padding: 5px; background-color: #263238; color: white; border: 1px solid #546e7a; border-radius: 4px;")
+        self.combo_store.setStyleSheet(AppStyles.COMBO_BOX)
         self.combo_store.currentIndexChanged.connect(self.on_store_filter_changed)
         header_right.addWidget(self.combo_store)
         
         self.combo_events = QComboBox()
         self.combo_events.setMinimumWidth(200)
-        self.combo_events.setStyleSheet("padding: 5px; background-color: #37474f; color: white; border: 1px solid #546e7a; border-radius: 4px;")
+        self.combo_events.setStyleSheet(AppStyles.COMBO_BOX)
         self.combo_events.currentIndexChanged.connect(self.on_event_changed)
         header_right.addWidget(self.combo_events)
         
         self.btn_new_event = QPushButton("Nueva Jornada")
         self.btn_new_event.clicked.connect(self.prompt_create_event)
-        self.btn_new_event.setStyleSheet("background-color: #f57f17; color: white; border-radius: 4px; font-weight: bold; padding: 5px 10px;")
+        self.btn_new_event.setStyleSheet(AppStyles.BUTTON_ACCENT)
         header_right.addWidget(self.btn_new_event)
         
         right_layout.addLayout(header_right)
@@ -220,10 +212,7 @@ class TombolaView(QWidget):
                 day_to_update = 1
                 if status == 0:
                      last_day = self.controller.get_last_filled_day(char.id, self.current_event.id)
-                     if last_day and last_day > 0:
-                         day_to_update = last_day
-                     else:
-                         day_to_update = 1
+                     day_to_update = last_day if last_day and last_day > 0 else 1
                 else:
                      day_to_update = self.controller.get_next_pending_day(char.id, self.current_event.id)
                 
@@ -282,17 +271,17 @@ class TombolaView(QWidget):
             self.model.set_data([], None)
             return
 
-        raw_data = self.controller.get_tombola_dashboard_data(self.server_id, self.current_event.id)
-        self.all_data = raw_data
+        dto = self.controller.get_tombola_dashboard_data(self.server_id, self.current_event.id)
+        self.all_data = dto.store_accounts
         
         self.combo_store.blockSignals(True)
         current_store_id = self.combo_store.currentData()
         self.combo_store.clear()
         self.combo_store.addItem("Todos", None)
         
-        sorted_stores = sorted(self.all_data, key=lambda x: x['store'].email)
-        for item in sorted_stores:
-             self.combo_store.addItem(item['store'].email, item['store'].id)
+        sorted_stores = sorted(self.all_data, key=lambda x: x.email)
+        for store in sorted_stores:
+             self.combo_store.addItem(store.email, store.id)
         
         if current_store_id:
              idx = self.combo_store.findData(current_store_id)
@@ -310,7 +299,7 @@ class TombolaView(QWidget):
         if target_store_id is None:
             filtered_data = self.all_data
         else:
-            filtered_data = [s for s in self.all_data if s['store'].id == target_store_id]
+            filtered_data = [s for s in self.all_data if s.id == target_store_id]
             
         self.model.set_data(filtered_data, self.current_event.id if self.current_event else None)
         self.tree_view.expandAll()

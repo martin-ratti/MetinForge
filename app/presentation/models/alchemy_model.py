@@ -1,6 +1,8 @@
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt, QVariant
 from app.utils.logger import logger
 
+from app.application.dtos import StoreAccountDTO, GameAccountDTO, AlchemyCharacterDTO
+
 class AlchemyModel(QAbstractItemModel):
     """Modelo jerarquico para AlchemyView: Root -> Store -> GameAccount."""
     
@@ -41,10 +43,15 @@ class AlchemyModel(QAbstractItemModel):
         
         account = index.data(self.RawDataRole)
         
-        if not hasattr(account, 'current_event_activity'):
-             account.current_event_activity = {}
+        if not hasattr(account, 'current_event_activity'): # Fallback para compatibilidad o tests
+             # En DTOs deberia estar en characters[0].daily_status_map
+             pass
         
-        account.current_event_activity[day] = status
+        # En DTOs, actualizamos el daily_status_map del primer personaje
+        if account.characters:
+            char = account.characters[0]
+            if isinstance(char, AlchemyCharacterDTO):
+                char.daily_status_map[day] = status
         
         if account.id not in self._cords_summary:
              self._cords_summary[account.id] = {}
@@ -65,8 +72,8 @@ class AlchemyModel(QAbstractItemModel):
                 return self.createIndex(row, column, self._data[row])
         else:
             parent_item = parent.internalPointer()
-            if isinstance(parent_item, dict) and 'accounts' in parent_item:
-                accounts = parent_item['accounts']
+            if isinstance(parent_item, StoreAccountDTO):
+                accounts = parent_item.game_accounts
                 if 0 <= row < len(accounts):
                     return self.createIndex(row, column, accounts[row])
         
@@ -78,11 +85,13 @@ class AlchemyModel(QAbstractItemModel):
 
         child_item = index.internalPointer()
 
-        if isinstance(child_item, dict) and 'store' in child_item:
+        child_item = index.internalPointer()
+
+        if isinstance(child_item, StoreAccountDTO):
             return QModelIndex()
 
         for r, store_data in enumerate(self._data):
-            if child_item in store_data.get('accounts', []):
+            if child_item in store_data.game_accounts:
                 return self.createIndex(r, 0, store_data)
                 
         return QModelIndex()
@@ -92,8 +101,8 @@ class AlchemyModel(QAbstractItemModel):
             return len(self._data)
         
         parent_item = parent.internalPointer()
-        if isinstance(parent_item, dict):
-            return len(parent_item.get('accounts', []))
+        if isinstance(parent_item, StoreAccountDTO):
+            return len(parent_item.game_accounts)
             
         return 0
 
@@ -105,7 +114,7 @@ class AlchemyModel(QAbstractItemModel):
             return None
 
         item = index.internalPointer()
-        is_store = isinstance(item, dict)
+        is_store = isinstance(item, StoreAccountDTO)
         column = index.column()
 
         if role == self.RawDataRole:
@@ -117,7 +126,7 @@ class AlchemyModel(QAbstractItemModel):
         if is_store:
             if role == Qt.ItemDataRole.DisplayRole:
                 if column == 0:
-                    return item['store'].email
+                    return item.email
             return None
 
         account = item
@@ -127,9 +136,11 @@ class AlchemyModel(QAbstractItemModel):
                 return account.username
             elif column == 1:
                 if account.characters:
-                    return str(account.characters[0].slots)
+                    # Asumimos DTOs
+                    return str(account.characters[0].slots) if hasattr(account.characters[0], 'slots') else "5"
                 return "5"
             elif column == 2:
+                # Nombre del personaje (Mezclador)
                 return account.characters[0].name if account.characters else "-"
             elif column == 4:
                 if self._current_day:
@@ -139,7 +150,13 @@ class AlchemyModel(QAbstractItemModel):
                 return "0" 
 
         if role == self.GridDataRole and column == 3:
-            return getattr(account, 'current_event_activity', {})
+            if account.characters:
+                char = account.characters[0]
+                if hasattr(char, 'daily_status_map'):
+                    return char.daily_status_map
+                # Fallback activity map si fuera dict
+                return getattr(char, 'fishing_activity_map', {}) # No, fishing no
+            return {}
 
         if role == self.CordsRole and column == 4:
             if account.id in self._cords_summary:

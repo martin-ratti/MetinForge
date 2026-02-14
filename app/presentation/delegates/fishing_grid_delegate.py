@@ -2,23 +2,24 @@ from PyQt6.QtWidgets import QStyledItemDelegate
 from PyQt6.QtCore import Qt, QRect, QSize
 from PyQt6.QtGui import QColor, QPainter, QBrush, QPen
 from app.presentation.models.fishing_model import FishingModel
+from app.presentation.styles import AppColors, AppDims
 
 class FishingGridDelegate(QStyledItemDelegate):
     """Delegate para renderizar la grilla anual de pesca (12 Meses x 4 Semanas) en una celda."""
     
-    CELL_SIZE = 18
-    SPACING = 2
-    MONTH_SPACING = 6
+    CELL_SIZE = AppDims.CELL_SIZE
+    SPACING = AppDims.SPACING
+    MONTH_SPACING = AppDims.MONTH_SPACING
     
     def __init__(self, parent=None, controller=None, model=None):
         super().__init__(parent)
         self.controller = controller
         self.model = model
         
-        self.color_pending = QColor("#2b2b2b")
-        self.color_success = QColor("#d4af37")  # Gold (like tombola)
-        self.color_fail = QColor("#550000")     # Dark Red (like tombola)
-        self.border_pen = QPen(QColor("#5d4d2b"))
+        self.color_pending = AppColors.PENDING
+        self.color_success = AppColors.SUCCESS
+        self.color_fail = AppColors.FAIL
+        self.border_pen = QPen(AppColors.BORDER)
 
     def paint(self, painter, option, index):
         if not index.isValid():
@@ -30,7 +31,7 @@ class FishingGridDelegate(QStyledItemDelegate):
         if item_type == "store" and index.column() == 2:
             painter.save()
             rect = option.rect
-            painter.fillRect(rect, QColor("#102027"))
+            painter.fillRect(rect, AppColors.HEADER_BG)
             
             x = rect.x()
             y_center = rect.y() + (rect.height() - self.CELL_SIZE) // 2

@@ -11,16 +11,17 @@ from app.presentation.delegates.store_header_delegate import StoreHeaderDelegate
 from app.presentation.delegates.cords_delegate import CordsDelegate
 from app.presentation.views.widgets.alchemy_counters_widget import AlchemyCountersWidget
 from app.utils.shortcuts import register_shortcuts
+from app.presentation.styles import AppStyles, AppColors
 import datetime
 
 class AlchemyView(QWidget):
     backRequested = pyqtSignal()
 
-    def __init__(self, server_id, server_name):
+    def __init__(self, server_id, server_name, controller=None):
         super().__init__()
         self.server_id = server_id
         self.server_name = server_name
-        self.controller = AlchemyService()
+        self.controller = controller if controller else AlchemyService()
         
         self.events_cache = []
         self.current_event = None
@@ -51,19 +52,10 @@ class AlchemyView(QWidget):
         btn_back.setFixedWidth(100)
         btn_back.setFixedHeight(30)
         btn_back.clicked.connect(self.backRequested.emit)
-        btn_back.setStyleSheet("""
-            QPushButton {
-                background-color: #550000;
-                border: 2px solid #800000;
-                color: #ffcccc;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover { background-color: #800000; }
-        """)
+        btn_back.setStyleSheet(AppStyles.BUTTON_BACK)
         
         left_title = QLabel(f"{self.server_name}")
-        left_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #d4af37;")
+        left_title.setStyleSheet(AppStyles.LABEL_TITLE)
         left_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         header_left.addWidget(btn_back)
@@ -73,11 +65,11 @@ class AlchemyView(QWidget):
         # Toolbar
         btn_add_email = QPushButton("📧+ Correo") 
         btn_add_email.clicked.connect(self.prompt_add_email)
-        btn_add_email.setStyleSheet("QPushButton { background-color: #1565c0; color: white; border: 1px solid #1e88e5; border-radius: 4px; font-weight: bold; }")
+        btn_add_email.setStyleSheet(AppStyles.BUTTON_ACTION)
         
         btn_import = QPushButton("📥 Importar")
         btn_import.clicked.connect(self.on_import_requested)
-        btn_import.setStyleSheet("QPushButton { background-color: #455a64; color: white; border: 1px solid #607d8b; border-radius: 4px; font-weight: bold; }")
+        btn_import.setStyleSheet(AppStyles.BUTTON_SECONDARY)
         
         email_toolbar = QHBoxLayout()
         email_toolbar.addWidget(btn_add_email)
@@ -101,26 +93,26 @@ class AlchemyView(QWidget):
         header_right.setSpacing(10)
         
         lbl_server = QLabel(f"{self.server_name.title()}")
-        lbl_server.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37; background-color: #263238; border: 1px solid #d4af37; border-radius: 4px; padding: 4px 8px;")
+        lbl_server.setStyleSheet(AppStyles.LABEL_BADGE)
         header_right.addWidget(lbl_server)
         header_right.addStretch()
         
         # Filters
         self.combo_store = QComboBox()
         self.combo_store.setMinimumWidth(150)
-        self.combo_store.setStyleSheet("padding: 5px; background-color: #263238; color: white; border: 1px solid #546e7a; border-radius: 4px;")
+        self.combo_store.setStyleSheet(AppStyles.COMBO_BOX)
         self.combo_store.currentIndexChanged.connect(self.on_store_filter_changed)
         header_right.addWidget(self.combo_store)
         
         self.combo_events = QComboBox()
         self.combo_events.setMinimumWidth(200)
-        self.combo_events.setStyleSheet("padding: 5px; background-color: #37474f; color: white; border: 1px solid #546e7a; border-radius: 4px;")
+        self.combo_events.setStyleSheet(AppStyles.COMBO_BOX)
         self.combo_events.currentIndexChanged.connect(self.on_event_changed)
         header_right.addWidget(self.combo_events)
         
         self.btn_new_event = QPushButton("➕ Nueva Jornada")
         self.btn_new_event.clicked.connect(self.prompt_create_event)
-        self.btn_new_event.setStyleSheet("background-color: #f57f17; color: white; border-radius: 4px; font-weight: bold; padding: 5px 10px;")
+        self.btn_new_event.setStyleSheet(AppStyles.BUTTON_ACCENT)
         header_right.addWidget(self.btn_new_event)
         
         right_layout.addLayout(header_right)
@@ -263,7 +255,7 @@ class AlchemyView(QWidget):
                      day_to_update = self.controller.get_next_pending_day(char.id, self.current_event.id)
                 
                 if day_to_update > 1:
-                    activity = getattr(account, 'current_event_activity', {})
+                    activity = char.daily_status_map
                     prev_status = activity.get(day_to_update - 1, 0)
                     if prev_status == 0:
                         continue
@@ -371,8 +363,8 @@ class AlchemyView(QWidget):
             self.model.set_data([], None)
             return
 
-        raw_data = self.controller.get_alchemy_dashboard_data(self.server_id, event_id=self.current_event.id)
-        self.all_data = raw_data
+        dto = self.controller.get_alchemy_dashboard_data(self.server_id, event_id=self.current_event.id)
+        self.all_data = dto.store_accounts
         
         # Populate Filter
         self.combo_store.blockSignals(True)
@@ -380,9 +372,9 @@ class AlchemyView(QWidget):
         self.combo_store.clear()
         self.combo_store.addItem("Todos", None)
         
-        sorted_stores = sorted(self.all_data, key=lambda x: x['store'].email)
+        sorted_stores = sorted(self.all_data, key=lambda x: x.email)
         for item in sorted_stores:
-             self.combo_store.addItem(item['store'].email, item['store'].id)
+             self.combo_store.addItem(item.email, item.id)
         
         if current_store_id:
              idx = self.combo_store.findData(current_store_id)
@@ -399,7 +391,7 @@ class AlchemyView(QWidget):
         if target_store_id is None:
             filtered_data = self.all_data
         else:
-            filtered_data = [s for s in self.all_data if s['store'].id == target_store_id]
+            filtered_data = [s for s in self.all_data if s.id == target_store_id]
             
         cords_summary = self.controller.get_all_daily_cords(self.current_event.id) if self.current_event else {}
         

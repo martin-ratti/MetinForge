@@ -8,16 +8,18 @@ from app.presentation.delegates.fishing_grid_delegate import FishingGridDelegate
 from app.utils.feedback import FeedbackManager
 from app.utils.shortcuts import register_shortcuts
 from app.utils.logger import logger
+from app.presentation.styles import AppStyles, AppColors
 import datetime
+
 
 class FishingView(QWidget):
     backRequested = pyqtSignal()
 
-    def __init__(self, server_id, server_name):
+    def __init__(self, server_id, server_name, controller=None):
         super().__init__()
         self.server_id = server_id
         self.server_name = server_name
-        self.controller = FishingService()
+        self.controller = controller if controller else FishingService()
         self.feedback = FeedbackManager.instance()
         self.current_year = datetime.date.today().year
         self.all_data = [] 
@@ -44,19 +46,10 @@ class FishingView(QWidget):
         btn_back.setFixedWidth(100)
         btn_back.setFixedHeight(30)
         btn_back.clicked.connect(self.backRequested.emit)
-        btn_back.setStyleSheet("""
-            QPushButton {
-                background-color: #550000;
-                border: 2px solid #800000;
-                color: #ffcccc;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover { background-color: #800000; }
-        """)
+        btn_back.setStyleSheet(AppStyles.BUTTON_BACK)
         
         left_title = QLabel(f"{self.server_name}")
-        left_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #d4af37;")
+        left_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {AppColors.TEXT_PRIMARY.name()};")
         left_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         header_left.addWidget(btn_back)
@@ -65,58 +58,37 @@ class FishingView(QWidget):
         
         # ── Resumen de progreso ────────────────
         self.progress_frame = QFrame()
-        self.progress_frame.setStyleSheet("""
-            QFrame {
-                background-color: #102027;
-                border: 1px solid #37474f;
-                border-radius: 8px;
-            }
-            QLabel {
-                border: none;
-                background: transparent;
-            }
-        """)
+        self.progress_frame.setStyleSheet(AppStyles.FRAME_PROGRESS)
         progress_layout = QVBoxLayout(self.progress_frame)
         progress_layout.setContentsMargins(12, 12, 12, 12)
         progress_layout.setSpacing(8)
         
         lbl_progress_title = QLabel("📊 Progreso Anual")
-        lbl_progress_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #d4af37;")
+        lbl_progress_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {AppColors.TEXT_PRIMARY.name()};")
         lbl_progress_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         progress_layout.addWidget(lbl_progress_title)
         
         self.lbl_total_accounts = QLabel("Cuentas: —")
-        self.lbl_total_accounts.setStyleSheet("font-size: 12px; color: #b0bec5;")
+        self.lbl_total_accounts.setStyleSheet(f"font-size: 12px; color: {AppColors.PROG_TOTAL.name()};")
         progress_layout.addWidget(self.lbl_total_accounts)
         
         self.lbl_completed = QLabel("✓ Completadas: —")
-        self.lbl_completed.setStyleSheet("font-size: 12px; color: #4fc3f7;")
+        self.lbl_completed.setStyleSheet(f"font-size: 12px; color: {AppColors.PROG_COMPLETED.name()};")
         progress_layout.addWidget(self.lbl_completed)
         
         self.lbl_failed = QLabel("✕ Fallidas: —")
-        self.lbl_failed.setStyleSheet("font-size: 12px; color: #ef5350;")
+        self.lbl_failed.setStyleSheet(f"font-size: 12px; color: {AppColors.PROG_FAILED.name()};")
         progress_layout.addWidget(self.lbl_failed)
         
         self.lbl_pending = QLabel("◻ Pendientes: —")
-        self.lbl_pending.setStyleSheet("font-size: 12px; color: #78909c;")
+        self.lbl_pending.setStyleSheet(f"font-size: 12px; color: {AppColors.PROG_PENDING.name()};")
         progress_layout.addWidget(self.lbl_pending)
         
         left_layout.addWidget(self.progress_frame)
         
         # ── Botón importar ─────────────────────
         btn_import = QPushButton("📥 Importar Excel")
-        btn_import.setStyleSheet("""
-            QPushButton {
-                background-color: #2e7d32;
-                color: white;
-                border: 1px solid #1b5e20;
-                border-radius: 4px;
-                padding: 8px;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QPushButton:hover { background-color: #388e3c; }
-        """)
+        btn_import.setStyleSheet(AppStyles.BUTTON_IMPORT)
         btn_import.clicked.connect(self.import_excel)
         left_layout.addWidget(btn_import)
         
@@ -265,19 +237,19 @@ class FishingView(QWidget):
         elif status == -1: self.feedback.play_fail()
 
         for index in account_indexes:
-            account = index.data(FishingModel.RawDataRole)
-            char = account.characters[0] if account.characters else None
+            account_dto = index.data(FishingModel.RawDataRole)
+            char_dto = account_dto.characters[0] if account_dto.characters else None
             
-            if char:
+            if char_dto:
                 target_m, target_w = None, None
                 
                 if status == 0:
-                     target_m, target_w = self.controller.get_last_filled_week(char.id, self.current_year)
+                     target_m, target_w = self.controller.get_last_filled_week(char_dto.id, self.current_year)
                 else:
-                    target_m, target_w = self.controller.get_next_pending_week(char.id, self.current_year)
+                    target_m, target_w = self.controller.get_next_pending_week(char_dto.id, self.current_year)
                 
                 if target_m and target_w:
-                    self.controller.update_fishing_status(char.id, self.current_year, target_m, target_w, status)
+                    self.controller.update_fishing_status(char_dto.id, self.current_year, target_m, target_w, status)
                     self.model.update_fishing_status(index, target_m, target_w, status)
 
         if len(account_indexes) == 1 and status != 0:
@@ -300,9 +272,9 @@ class FishingView(QWidget):
         self.combo_store.clear()
         self.combo_store.addItem("Todos", None)
         
-        sorted_stores = sorted(self.all_data, key=lambda x: x['store'].email)
-        for item in sorted_stores:
-             self.combo_store.addItem(item['store'].email, item['store'].id)
+        sorted_stores = sorted(self.all_data, key=lambda x: x.email)
+        for store in sorted_stores:
+             self.combo_store.addItem(store.email, store.id)
         
         if current_store_id:
              idx = self.combo_store.findData(current_store_id)
@@ -335,7 +307,7 @@ class FishingView(QWidget):
         if target_store_id is None:
             filtered_data = self.all_data
         else:
-            filtered_data = [s for s in self.all_data if s['store'].id == target_store_id]
+            filtered_data = [s for s in self.all_data if s.id == target_store_id]
             
         self.model.set_data(filtered_data, self.current_year)
         self.tree_view.expandAll()
@@ -358,11 +330,13 @@ class FishingView(QWidget):
         failed = 0
         pending = 0
         
-        for store_data in self.all_data:
-            accounts = store_data.get('accounts', [])
+        for store_dto in self.all_data:
+            accounts = store_dto.game_accounts
             for acc in accounts:
+                if not acc.characters: continue
                 total_accounts += 1
-                activity = getattr(acc, 'fishing_activity_map', {})
+                char_dto = acc.characters[0]
+                activity = char_dto.fishing_activity_map
                 for m in range(1, 13):
                     for w in range(1, 5):
                         status = activity.get(f"{m}_{w}", 0)

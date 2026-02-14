@@ -84,6 +84,9 @@ class TestFishingIntegration:
         data = fishing_ctrl.get_fishing_data(server_id, year)
         
         assert len(data) > 0
-        game_acc = data[0]['accounts'][0]
-        assert game_acc.fishing_activity_map['1_1'] == 1
-        assert game_acc.fishing_activity_map['1_2'] == -1
+        store_dto = data[0]
+        game_acc_dto = store_dto.game_accounts[0]
+        char_dto = game_acc_dto.characters[0]
+        
+        assert char_dto.fishing_activity_map['1_1'] == 1
+        assert char_dto.fishing_activity_map['1_2'] == -1

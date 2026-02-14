@@ -34,7 +34,7 @@ class GameAccount(Base):
     __tablename__ = 'game_accounts'
     
     id = Column(Integer, primary_key=True)
-    username = Column(String(50), nullable=False) # Removed unique=True
+    username = Column(String(50), nullable=False)
     store_account_id = Column(Integer, ForeignKey('store_accounts.id'))
     server_id = Column(Integer, ForeignKey('servers.id'))
     

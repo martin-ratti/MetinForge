@@ -3,28 +3,42 @@ import sys
 import os
 
 # Ensure src is in path
-# sys.path modification removed (handled by pytest.ini)
+# Ensure src is in path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.domain.base import Base
 from app.domain.models import Server, StoreAccount, GameAccount, Character, CharacterType
 
-# Use in-memory SQLite for tests
-TEST_DATABASE_URL = "sqlite:///:memory:"
+from sqlalchemy.pool import StaticPool
+
+# Use in-memory SQLite with shared pool for tests
+TEST_DATABASE_URL = "sqlite://"
+
+@pytest.fixture(scope="session")
+def engine():
+    engine = create_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False
+    )
+    Base.metadata.create_all(engine)
+    return engine
 
 @pytest.fixture(scope="function")
-def test_db():
-    engine = create_engine(TEST_DATABASE_URL)
-    Base.metadata.create_all(engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def test_db(engine):
+    connection = engine.connect()
+    transaction = connection.begin()
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=connection)
     
     session = TestingSessionLocal()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(engine)
+        transaction.rollback()
+        connection.close()
 
 @pytest.fixture(scope="function")
 def seed_data(test_db):

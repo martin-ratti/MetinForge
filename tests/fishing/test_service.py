@@ -1,6 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from app.application.services.fishing_service import FishingService
+from app.application.dtos import StoreAccountDTO, GameAccountDTO, CharacterDTO
+from app.domain.models import StoreAccount, GameAccount, FishingActivity
 
 @pytest.fixture
 def mock_session():
@@ -20,6 +22,63 @@ def test_get_fishing_data_empty(service, mock_session):
     mock_session.query.return_value.join.return_value.filter.return_value.distinct.return_value.all.return_value = []
     result = service.get_fishing_data(server_id=1, year=2026)
     assert result == []
+
+
+def test_get_fishing_data_returns_dtos(service, mock_session):
+    """Verifica que se retornen objetos DTO correctamente estructurados."""
+    # Mock data
+    store = MagicMock(spec=StoreAccount)
+    store.id = 1
+    store.email = "test@mail.com"
+    
+    ga = MagicMock(spec=GameAccount)
+    ga.id = 10
+    ga.username = "user1"
+    ga.server_id = 1
+    ga.store_account_id = 1
+    
+    char = MagicMock()
+    char.id = 100
+    char.name = "Fisher"
+    char.job = 1
+    char.level = 10
+    ga.characters = [char]
+    
+    # Configure mock query side effects
+    def query_side_effect(model):
+        query_mock = MagicMock()
+        if model == StoreAccount:
+            query_mock.join.return_value.filter.return_value.distinct.return_value.all.return_value = [store]
+        elif model == GameAccount:
+            query_mock.filter.return_value.all.return_value = [ga]
+        elif model == FishingActivity:
+            act = MagicMock()
+            act.month = 1
+            act.week = 1
+            act.status_code = 1
+            query_mock.filter.return_value.all.return_value = [act]
+        return query_mock
+
+    mock_session.query.side_effect = query_side_effect
+    
+    result = service.get_fishing_data(server_id=1, year=2026)
+    
+    assert len(result) == 1
+    assert isinstance(result[0], StoreAccountDTO)
+    assert result[0].email == "test@mail.com"
+    
+    assert len(result[0].game_accounts) == 1
+    ga_dto = result[0].game_accounts[0]
+    assert isinstance(ga_dto, GameAccountDTO)
+    assert ga_dto.username == "user1"
+    
+    assert len(ga_dto.characters) == 1
+    char_dto = ga_dto.characters[0]
+    assert isinstance(char_dto, CharacterDTO)
+    assert char_dto.name == "Fisher"
+    
+    # Check activity map
+    assert char_dto.fishing_activity_map.get("1_1") == 1
 
 
 def test_get_last_filled_week_no_activity(service, mock_session):

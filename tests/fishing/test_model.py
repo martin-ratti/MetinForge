@@ -15,14 +15,28 @@ def qapp():
 
 
 def _make_store_data(email="test@store.com", accounts=None):
-    """Helper: crea estructura de datos mock para FishingModel."""
+    """Helper: crea estructura de datos mock para FishingModel usando DTOs."""
+    from app.application.dtos import StoreAccountDTO, GameAccountDTO, FishingCharacterDTO
+    
+    store_dto = StoreAccountDTO(id=1, email=email)
+    
     if accounts is None:
-        acc = MagicMock()
-        acc.username = "TestUser"
-        acc.characters = [MagicMock(name="Fisher1", id=1)]
-        acc.characters[0].fishing_activities = []
-        accounts = [acc]
-    return {"store": MagicMock(email=email, id=1), "accounts": accounts}
+        # Default scenario with one account and one char
+        char_dto = FishingCharacterDTO(id=1, name="Fisher1", job=0, level=1)
+        ga_dto = GameAccountDTO(id=10, username="TestUser", server_id=1, characters=[char_dto])
+        store_dto.game_accounts.append(ga_dto)
+    else:
+        # Handle passed accounts (mocks) converting them to DTOs or assuming they are DTOs-like
+        for acc_mock in accounts:
+            ga_dto = GameAccountDTO(id=getattr(acc_mock, 'id', 10), username=acc_mock.username, server_id=1)
+            chars = []
+            for c in acc_mock.characters:
+                 char_dto = FishingCharacterDTO(id=c.id, name=c.name, job=0, level=1)
+                 chars.append(char_dto)
+            ga_dto.characters = chars
+            store_dto.game_accounts.append(ga_dto)
+            
+    return store_dto
 
 
 class TestFishingModelEmpty:

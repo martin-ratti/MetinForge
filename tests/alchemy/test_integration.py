@@ -9,26 +9,9 @@ from app.domain.models import (
     AlchemyEvent, DailyCorActivity
 )
 
-class SessionProxy:
-    """Proxy que delega todo a la sesión de SQLAlchemy excepto close()."""
-    def __init__(self, session):
-        self._session = session
-    def __getattr__(self, name):
-        if name == 'close':
-            return lambda: None
-        return getattr(self._session, name)
-
-class MockAlchemyService(AlchemyService):
-    def __init__(self, session):
-        self._proxy = SessionProxy(session)
-        super().__init__(session=self._proxy)
-        self._test_session = self._proxy
-    def Session(self):
-        return self._test_session
-
 @pytest.fixture
 def alchemy_ctrl(test_db):
-    return MockAlchemyService(test_db)
+    return AlchemyService(test_db)
 
 # =================== TESTS DE INTEGRACION (Servicio) ===================
 
@@ -83,6 +66,16 @@ class TestAlchemyServiceIntegration:
         
         alchemy_ctrl.update_daily_status(char_id, 1, 1, event_id)
         assert alchemy_ctrl.get_next_pending_day(char_id, event_id) == 2
+
+    def test_alchemy_dashboard_data(self, alchemy_ctrl, test_db, seed_data):
+        server_id = seed_data['server'].id
+        event = AlchemyEvent(server_id=server_id, name="DashTest", total_days=30)
+        test_db.add(event)
+        test_db.commit()
+        
+        data = alchemy_ctrl.get_alchemy_dashboard_data(server_id, event_id=event.id)
+        assert len(data.store_accounts) > 0
+        assert data.store_accounts[0].game_accounts[0].username == "TestUser"
 
 # =================== TESTS DE GESTION DE CUENTAS ===================
 

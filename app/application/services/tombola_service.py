@@ -1,9 +1,14 @@
-from sqlalchemy.orm import sessionmaker, joinedload
-from sqlalchemy import create_engine
-from app.utils.config import Config
-from app.domain.models import Server, StoreAccount, GameAccount, Character, TombolaEvent, TombolaActivity
-
+from app.application.dtos import (
+    StoreAccountDTO, GameAccountDTO, TombolaCharacterDTO, 
+    TombolaEventDTO, TombolaDashboardDTO
+)
+from sqlalchemy.orm import joinedload
 from app.application.services.base_service import BaseService
+from app.domain.models import (
+    Server, StoreAccount, GameAccount, Character, CharacterType,
+    TombolaEvent, TombolaActivity, TombolaItemCounter
+)
+import datetime
 from app.utils.logger import logger
 
 class TombolaService(BaseService):
@@ -12,209 +17,145 @@ class TombolaService(BaseService):
 
     
     def get_tombola_item_counters(self, event_id):
-        """Obtiene todos los contadores de items para un evento tombola"""
-        if not event_id:
-            return {}
-            
-        session = self.get_session()
+        if not event_id: return {}
         try:
-            from app.domain.models import TombolaItemCounter
-            counters = session.query(TombolaItemCounter).filter_by(event_id=event_id).all()
-            return {counter.item_name: counter.count for counter in counters}
+            with self.session_scope() as session:
+                counters = session.query(TombolaItemCounter).filter_by(event_id=event_id).all()
+                return {counter.item_name: counter.count for counter in counters}
         except Exception as e:
-            logger.error(f"Error al obtener contadores tombola: {e}")
+            logger.error(f"Error fetching tombola counters: {e}")
             return {}
-        finally:
-            session.close()
 
     def update_tombola_item_count(self, event_id, item_name, count):
-        """Actualiza el contador de un item tombola"""
-        if not event_id or not item_name:
-            logger.warning("Attempted to update tombola item without event_id or item_name")
-            return False
-            
-        session = self.get_session()
+        if not event_id or not item_name: return False
         try:
-            from app.domain.models import TombolaItemCounter
-            counter = session.query(TombolaItemCounter).filter_by(
-                event_id=event_id,
-                item_name=item_name
-            ).first()
-            
-            if counter:
-                counter.count = count
-            else:
-                new_counter = TombolaItemCounter(
-                    event_id=event_id,
-                    item_name=item_name,
-                    count=count
-                )
-                session.add(new_counter)
-            
-            session.commit()
-            return True
+            with self.session_scope() as session:
+                counter = session.query(TombolaItemCounter).filter_by(
+                    event_id=event_id, item_name=item_name
+                ).first()
+                if counter: counter.count = count
+                else:
+                    new_counter = TombolaItemCounter(
+                        event_id=event_id, item_name=item_name, count=count
+                    )
+                    session.add(new_counter)
+                return True
         except Exception as e:
             logger.error(f"Error al actualizar item tombola {item_name}: {e}")
-            session.rollback()
             return False
-        finally:
-            session.close()
     
     def get_tombola_events(self, server_id):
-        """Get all tombola events for a server"""
         if not server_id: return []
-        
-        session = self.get_session()
         try:
-            events = session.query(TombolaEvent).filter(
-                TombolaEvent.server_id == server_id
-            ).order_by(TombolaEvent.created_at.desc()).all()
-            return events
+            with self.session_scope() as session:
+                events = session.query(TombolaEvent).filter_by(server_id=server_id).order_by(TombolaEvent.created_at.desc()).all()
+                return [TombolaEventDTO(id=e.id, server_id=e.server_id, name=e.name, total_days=30, created_at=e.created_at) for e in events]
         except Exception as e:
             logger.error(f"Error fetching tombola events: {e}")
             return []
-        finally:
-            session.close()
     
     def create_tombola_event(self, server_id, event_name):
-        """Create a new tombola event (jornada)"""
-        if not event_name or not event_name.strip():
-            logger.error("Error: Event name cannot be empty.")
-            return None
-
-        session = self.get_session()
+        if not event_name or not event_name.strip(): return None
         try:
-            event = TombolaEvent(
-                server_id=server_id,
-                name=event_name.strip()
-            )
-            session.add(event)
-            session.commit()
-            session.refresh(event)
-            return event
+            with self.session_scope() as session:
+                event = TombolaEvent(server_id=server_id, name=event_name.strip())
+                session.add(event)
+                session.flush()
+                return TombolaEventDTO(id=event.id, server_id=event.server_id, name=event.name, total_days=30, created_at=event.created_at)
         except Exception as e:
-            session.rollback()
             logger.error(f"Error creating tombola event: {e}")
             return None
-        finally:
-            session.close()
     
     def get_tombola_dashboard_data(self, server_id, event_id=None):
-        """
-        Get data for tombola dashboard, filtered by event.
-        Returns empty if no event selected.
-        """
-        if not server_id or not event_id:
-            return []
-            
-        session = self.get_session()
+        if not server_id or not event_id: return TombolaDashboardDTO()
         try:
-            # Eager load para evitar N+1
-            query = session.query(StoreAccount).options(
-                joinedload(StoreAccount.game_accounts).joinedload(GameAccount.characters)
-            ).filter(StoreAccount.game_accounts.any(GameAccount.server_id == server_id))
-            
-            stores_data = query.all()
-            
-            # Batch fetch de actividades
-            all_char_ids = []
-            for store in stores_data:
-                for ga in store.game_accounts:
-                    if ga.server_id == server_id:
-                        for char in ga.characters:
-                            all_char_ids.append(char.id)
-            
-            activity_map = {}
-            if all_char_ids:
-                activities = session.query(TombolaActivity).filter(
-                    TombolaActivity.event_id == event_id,
-                    TombolaActivity.character_id.in_(all_char_ids)
-                ).all()
-                for act in activities:
-                    if act.character_id not in activity_map: activity_map[act.character_id] = {}
-                    activity_map[act.character_id][act.day_index] = act.status_code
-
-
-            result = []
-            for store in stores_data:
-                store_entry = {'store': store, 'accounts': []}
-                valid_accounts = []
-                for ga in store.game_accounts:
-                    if ga.server_id != server_id: continue
-                    
-                    if not ga.characters: continue
-
-                    first_char = ga.characters[0]
-                    ga.current_event_activity = activity_map.get(first_char.id, {})
-                    
-                    valid_accounts.append(ga)
+            with self.session_scope() as session:
+                # 1. Obtener todas las cuentas de juego del servidor
+                ga_query = session.query(GameAccount).options(
+                    joinedload(GameAccount.store_account),
+                    joinedload(GameAccount.characters)
+                ).filter(GameAccount.server_id == server_id)
                 
-                if valid_accounts:
-                    store_entry['accounts'] = valid_accounts
-                    result.append(store_entry)
-            
-            return result
+                game_accounts = ga_query.all()
+                if not game_accounts: return TombolaDashboardDTO()
+                
+                # 2. Obtener actividades de tómbola
+                activity_map = {}
+                all_char_ids = [c.id for ga in game_accounts for c in ga.characters]
+                if all_char_ids:
+                    activities = session.query(TombolaActivity).filter(
+                        TombolaActivity.event_id == event_id,
+                        TombolaActivity.character_id.in_(all_char_ids)
+                    ).all()
+                    for act in activities:
+                        if act.character_id not in activity_map: activity_map[act.character_id] = {}
+                        activity_map[act.character_id][act.day_index] = act.status_code
+
+                # 3. Agrupar por StoreAccount para DTOs
+                stores_map = {}
+                for ga in game_accounts:
+                    store = ga.store_account
+                    if store.id not in stores_map:
+                        stores_map[store.id] = {
+                            'dto': StoreAccountDTO(id=store.id, email=store.email, game_accounts=[]),
+                        }
+                    
+                    char_dtos = [
+                        TombolaCharacterDTO(
+                            id=c.id, name=c.name,
+                            daily_status_map=activity_map.get(c.id, {})
+                        ) for c in ga.characters
+                    ]
+                    
+                    ga_dto = GameAccountDTO(id=ga.id, username=ga.username, server_id=ga.server_id, characters=char_dtos)
+                    stores_map[store.id]['dto'].game_accounts.append(ga_dto)
+                
+                return TombolaDashboardDTO(store_accounts=[s['dto'] for s in stores_map.values()])
         except Exception as e:
-            logger.error(f"Error getting tombola dashboard data: {e}")
-            return []
-        finally:
-            session.close()
+            logger.error(f"Error en get_tombola_dashboard_data: {e}")
+            return TombolaDashboardDTO()
     
     def update_daily_status(self, character_id, day, status, event_id):
-        """Update or create a tombola activity status for a specific day"""
-        session = self.get_session()
+        if not event_id: return False
         try:
-
-            activity = session.query(TombolaActivity).filter(
-                TombolaActivity.character_id == character_id,
-                TombolaActivity.day_index == day,
-                TombolaActivity.event_id == event_id
-            ).first()
-            
-            if activity:
-                activity.status_code = status
-            else:
-
-                activity = TombolaActivity(
-                    character_id=character_id,
-                    day_index=day,
-                    status_code=status,
-                    event_id=event_id
-                )
-                session.add(activity)
-            
-            session.commit()
-            logger.info(f"Updated char {character_id} day {day} -> status {status}")
+            with self.session_scope() as session:
+                activity = session.query(TombolaActivity).filter_by(
+                    character_id=character_id, event_id=event_id, day_index=day
+                ).first()
+                if activity: activity.status_code = status
+                else:
+                    new_act = TombolaActivity(
+                        character_id=character_id, event_id=event_id, day_index=day, status_code=status
+                    )
+                    session.add(new_act)
+                return True
         except Exception as e:
-            session.rollback()
             logger.error(f"Error updating tombola status: {e}")
-        finally:
-            session.close()
+            return False
 
     def get_next_pending_day(self, char_id, event_id):
-        """
-        Calculates the first day that is NOT completed.
-        Returns integer day index.
-        """
-        return self._get_next_pending_day_generic(char_id, event_id, TombolaActivity)
+        if not event_id: return 1
+        try:
+            with self.session_scope() as session:
+                activities = session.query(TombolaActivity).filter_by(
+                    character_id=char_id, event_id=event_id
+                ).all()
+                status_map = {a.day_index: a.status_code for a in activities}
+                for d in range(1, 101):
+                    if status_map.get(d, 0) == 0: return d
+                return 1
+        except Exception: return 1
 
     def get_last_filled_day(self, char_id, event_id):
-        """
-        Calculates the last day that HAS a status (1 or -1).
-        Used for resetting/undoing actions.
-        Returns integer day index or None.
-        """
-        session = self.get_session()
+        if not event_id: return None
         try:
-            last_activity = session.query(TombolaActivity).filter(
-                TombolaActivity.character_id == char_id,
-                TombolaActivity.event_id == event_id,
-                TombolaActivity.status_code != 0
-            ).order_by(TombolaActivity.day_index.desc()).first()
-            
-            return last_activity.day_index if last_activity else None
+            with self.session_scope() as session:
+                last_act = session.query(TombolaActivity).filter(
+                    TombolaActivity.character_id == char_id,
+                    TombolaActivity.event_id == event_id,
+                    TombolaActivity.status_code != 0
+                ).order_by(TombolaActivity.day_index.desc()).first()
+                return last_act.day_index if last_act else None
         except Exception as e:
             logger.error(f"Error getting last filled day: {e}")
             return None
-        finally:
-            session.close()

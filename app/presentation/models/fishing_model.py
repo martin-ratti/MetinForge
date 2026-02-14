@@ -1,5 +1,6 @@
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt
 from app.utils.logger import logger
+from app.application.dtos import StoreAccountDTO, GameAccountDTO
 
 class FishingModel(QAbstractItemModel):
     """Modelo jerarquico para FishingView: Root -> Store -> GameAccount."""
@@ -28,13 +29,13 @@ class FishingModel(QAbstractItemModel):
         item_type = index.data(self.TypeRole)
         if item_type != "account": return
         
-        account = index.data(self.RawDataRole)
+        account_dto = index.data(self.RawDataRole)
+        if not account_dto.characters: return
         
-        if not hasattr(account, 'fishing_activity_map'):
-             account.fishing_activity_map = {}
+        char_dto = account_dto.characters[0]
         
         key = f"{month}_{week}"
-        account.fishing_activity_map[key] = status
+        char_dto.fishing_activity_map[key] = status
         
         grid_index = self.index(index.row(), 2, index.parent())
         self.dataChanged.emit(grid_index, grid_index, [self.GridDataRole])
@@ -48,8 +49,8 @@ class FishingModel(QAbstractItemModel):
                 return self.createIndex(row, column, self._data[row])
         else:
             parent_item = parent.internalPointer()
-            if isinstance(parent_item, dict) and 'accounts' in parent_item:
-                accounts = parent_item['accounts']
+            if isinstance(parent_item, StoreAccountDTO):
+                accounts = parent_item.game_accounts
                 if 0 <= row < len(accounts):
                     return self.createIndex(row, column, accounts[row])
         
@@ -61,12 +62,12 @@ class FishingModel(QAbstractItemModel):
 
         child_item = index.internalPointer()
 
-        if isinstance(child_item, dict) and 'store' in child_item:
+        if isinstance(child_item, StoreAccountDTO):
             return QModelIndex()
 
-        for r, store_data in enumerate(self._data):
-            if child_item in store_data.get('accounts', []):
-                return self.createIndex(r, 0, store_data)
+        for r, store_dto in enumerate(self._data):
+            if child_item in store_dto.game_accounts:
+                return self.createIndex(r, 0, store_dto)
                 
         return QModelIndex()
 
@@ -75,8 +76,8 @@ class FishingModel(QAbstractItemModel):
             return len(self._data)
         
         parent_item = parent.internalPointer()
-        if isinstance(parent_item, dict):
-            return len(parent_item.get('accounts', []))
+        if isinstance(parent_item, StoreAccountDTO):
+            return len(parent_item.game_accounts)
             
         return 0
 
@@ -88,7 +89,7 @@ class FishingModel(QAbstractItemModel):
             return None
 
         item = index.internalPointer()
-        is_store = isinstance(item, dict)
+        is_store = isinstance(item, StoreAccountDTO)
         column = index.column()
 
         if role == self.RawDataRole:
@@ -100,10 +101,10 @@ class FishingModel(QAbstractItemModel):
         if is_store:
             if role == Qt.ItemDataRole.DisplayRole:
                 if column == 0:
-                    return item['store'].email
+                    return item.email
             return None
 
-        account = item
+        account = item # GameAccountDTO
         
         if role == Qt.ItemDataRole.DisplayRole:
             if column == 0:
@@ -115,7 +116,9 @@ class FishingModel(QAbstractItemModel):
                 return name.split('_')[0] if '_' in name else name
         
         if role == self.GridDataRole and column == 2:
-            return getattr(account, 'fishing_activity_map', {})
+            chars = account.characters
+            first_char = chars[0] if chars else None
+            return first_char.fishing_activity_map if first_char else {}
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
             if column in [1]: 

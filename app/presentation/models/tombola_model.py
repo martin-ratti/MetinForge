@@ -1,6 +1,8 @@
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt
 from app.utils.logger import logger
 
+from app.application.dtos import StoreAccountDTO, GameAccountDTO, TombolaCharacterDTO
+
 class TombolaModel(QAbstractItemModel):
     """Modelo jerarquico para TombolaView: Root -> Store -> GameAccount."""
     
@@ -30,10 +32,11 @@ class TombolaModel(QAbstractItemModel):
         
         account = index.data(self.RawDataRole)
         
-        if not hasattr(account, 'current_event_activity'):
-             account.current_event_activity = {}
-        
-        account.current_event_activity[day] = status
+        # En TombolaDTO, el mapa esta en el primer personaje
+        if account.characters:
+            char = account.characters[0]
+            if isinstance(char, TombolaCharacterDTO):
+                char.daily_status_map[day] = status
         
         grid_index = self.index(index.row(), 2, index.parent())
         self.dataChanged.emit(grid_index, grid_index, [self.GridDataRole])
@@ -47,8 +50,8 @@ class TombolaModel(QAbstractItemModel):
                 return self.createIndex(row, column, self._data[row])
         else:
             parent_item = parent.internalPointer()
-            if isinstance(parent_item, dict) and 'accounts' in parent_item:
-                accounts = parent_item['accounts']
+            if isinstance(parent_item, StoreAccountDTO):
+                accounts = parent_item.game_accounts
                 if 0 <= row < len(accounts):
                     return self.createIndex(row, column, accounts[row])
         
@@ -60,12 +63,12 @@ class TombolaModel(QAbstractItemModel):
 
         child_item = index.internalPointer()
 
-        if isinstance(child_item, dict) and 'store' in child_item:
+        if isinstance(child_item, StoreAccountDTO):
             return QModelIndex()
 
-        for r, store_data in enumerate(self._data):
-            if child_item in store_data.get('accounts', []):
-                return self.createIndex(r, 0, store_data)
+        for r, store_dto in enumerate(self._data):
+            if child_item in store_dto.game_accounts:
+                return self.createIndex(r, 0, store_dto)
                 
         return QModelIndex()
 
@@ -74,8 +77,8 @@ class TombolaModel(QAbstractItemModel):
             return len(self._data)
         
         parent_item = parent.internalPointer()
-        if isinstance(parent_item, dict):
-            return len(parent_item.get('accounts', []))
+        if isinstance(parent_item, StoreAccountDTO):
+            return len(parent_item.game_accounts)
             
         return 0
 
@@ -87,7 +90,7 @@ class TombolaModel(QAbstractItemModel):
             return None
 
         item = index.internalPointer()
-        is_store = isinstance(item, dict)
+        is_store = isinstance(item, StoreAccountDTO)
         column = index.column()
 
         if role == self.RawDataRole:
@@ -99,7 +102,7 @@ class TombolaModel(QAbstractItemModel):
         if is_store:
             if role == Qt.ItemDataRole.DisplayRole:
                 if column == 0:
-                    return item['store'].email
+                    return item.email
             return None
 
         account = item
@@ -108,13 +111,15 @@ class TombolaModel(QAbstractItemModel):
             if column == 0:
                 return account.username
             elif column == 1:
-                chars = sorted(account.characters, key=lambda x: x.id) if account.characters else []
-                first_char = chars[0] if chars else None
-                name = first_char.name if first_char else "-"
-                return name.split('_')[0] if '_' in name else name
+                # Nombre del personaje (Mezclador)
+                return account.characters[0].name if account.characters else "-"
         
         if role == self.GridDataRole and column == 2:
-            return getattr(account, 'current_event_activity', {})
+            if account.characters:
+                char = account.characters[0]
+                if hasattr(char, 'daily_status_map'):
+                    return char.daily_status_map
+            return {}
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
             if column in [1]: 

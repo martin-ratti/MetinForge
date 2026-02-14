@@ -44,6 +44,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcb-xfixes0 \
     libxcb-shape0 \
     libxcb-cursor0 \
+    libx11-xcb1 \
+    libxcb-util1 \
+    libpulse0 \
+    libpulse-mainloop-glib0 \
+    libasound2 \
+    libasound2-plugins \
+    libgssapi-krb5-2 \
+    libnss3 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxi6 \
+    libxtst6 \
+    libxrandr2 \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-alsa \
+    libpipewire-0.3-0 \
     libfontconfig1 \
     fonts-dejavu-core \
     fonts-liberation \

@@ -8,6 +8,7 @@ from app.presentation.views.main_menu_view import MainMenuView
 import os
 
 from app.utils.logger import logger
+from app.container import ServiceContainer
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -37,8 +38,7 @@ class MainWindow(QMainWindow):
 
     def show_feature_selection(self, server_id, server_name):
         # Obtener flags del servidor
-        from app.application.services.alchemy_service import AlchemyService
-        service = AlchemyService()
+        service = ServiceContainer.alchemy_service()
         flags = service.get_server_flags(server_id)
         
         from app.presentation.views.feature_selection_view import FeatureSelectionView
@@ -59,19 +59,19 @@ class MainWindow(QMainWindow):
 
     def show_fishing(self, server_id, server_name):
         from app.presentation.views.fishing_view import FishingView
-        self.fishing_view = FishingView(server_id, server_name)
+        self.fishing_view = FishingView(server_id, server_name, controller=ServiceContainer.fishing_service())
         self.fishing_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
         self.setCentralWidget(self.fishing_view)
 
     def show_alchemy(self, server_id, server_name):
-        self.alchemy_view = AlchemyView(server_id, server_name)
+        self.alchemy_view = AlchemyView(server_id, server_name, controller=ServiceContainer.alchemy_service())
         # Volver al menu de features, no a seleccion de server
         self.alchemy_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
         self.setCentralWidget(self.alchemy_view)
     
     def show_tombola(self, server_id, server_name):
         from app.presentation.views.tombola_view import TombolaView
-        self.tombola_view = TombolaView(server_id, server_name)
+        self.tombola_view = TombolaView(server_id, server_name, controller=ServiceContainer.tombola_service())
         self.tombola_view.backRequested.connect(lambda: self.show_feature_selection(server_id, server_name))
         self.setCentralWidget(self.tombola_view)
     
